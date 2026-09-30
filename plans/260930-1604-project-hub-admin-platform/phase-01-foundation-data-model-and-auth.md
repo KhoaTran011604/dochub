@@ -36,12 +36,13 @@ Schema (Postgres 16, uuid pk via `gen_random_uuid()`):
 | sessions | id = sha256(token) pk, user_id fk, expires_at, created_at, ip, user_agent |
 | nodes | id, project_id fk nodes, parent_id fk nodes null ON DELETE CASCADE, type enum(project/folder/document), title, path text, depth int, position int, created_by, timestamps, **deleted_at timestamptz null** (soft-delete/trash); CHECK(type='project' ⇔ parent_id IS NULL AND project_id=id) |
 | node_closure | ancestor_id, descendant_id, depth; pk(ancestor,descendant); idx(descendant_id, depth); FKs cascade; includes self row depth 0 |
-| projects | node_id pk fk, project_type text, description, logo_file_id null, theme_color text CHECK hex |
-| documents | node_id pk fk, doc_type enum(page/form), content jsonb null, form_data jsonb null, template_id fk null, version int default 1, updated_by, updated_at; CHECK page⇒content, form⇒template_id |
+| projects | node_id pk fk, project_type text, description, logo_file_id null, theme_color text CHECK hex, **status enum(active/draft/archived) default 'draft'** |
+| documents | node_id pk fk, doc_type enum(page/form), content jsonb null, form_data jsonb null, template_id fk null, version int default 1, **status enum(draft/submitted) null** (form docs only; null for page docs), updated_by, updated_at; CHECK page⇒content, form⇒template_id |
 | templates | id, key text, version int, project_type, name, schema jsonb, ui_schema jsonb, is_latest bool, created_by, created_at; unique(key,version) |
 | node_permissions | node_id fk cascade, user_id fk cascade, role enum(none/viewer/editor/admin), granted_by, created_at; pk(node_id,user_id) |
 | share_links | id, node_id fk cascade, token_hash unique, created_by, created_at, revoked_at null, expires_at null |
 | files | id, project_id fk, storage_key, mime, size_bytes, original_name, uploaded_by, created_at |
+| comments | id, node_id fk cascade, user_id fk, body text, created_at, deleted_at null — **placeholder only, no routes/UI in MVP; reserved 2026-09-30 (phase-00 sign-off) for future "request change" affordance on public view; do not wire up until a phase explicitly scopes it** |
 
 Indexes: nodes(parent_id, position), nodes(project_id), nodes(path text_pattern_ops), node_permissions(user_id), templates(project_type) WHERE is_latest.
 
@@ -49,7 +50,7 @@ Indexes: nodes(parent_id, position), nodes(project_id), nodes(path text_pattern_
 - Root: `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `.gitignore`, `.env.example`, `docker-compose.yml` (postgres16, redis7), `eslint.config.js`
 - `packages/shared/src/`: `index.ts`, `enums/node-type-enum.ts`, `enums/node-role-enum.ts` (+ `roleRank`), `schemas/auth-schemas.ts`, `schemas/user-schemas.ts`, `schemas/common-schemas.ts` (uuid, pagination, error)
 - `apps/api/`: `package.json`, `tsconfig.json`, `drizzle.config.ts`
-- `apps/api/src/`: `server.ts`, `app.ts`, `config/env-config.ts`, `db/db-client.ts`, `db/schema/{users,nodes,documents,templates,permissions,share-links,files}-schema.ts`, `db/schema/index.ts`, `db/migrations/*` (generated + 1 custom SQL for citext/checks/pattern index)
+- `apps/api/src/`: `server.ts`, `app.ts`, `config/env-config.ts`, `db/db-client.ts`, `db/schema/{users,nodes,documents,templates,permissions,share-links,files,comments}-schema.ts`, `db/schema/index.ts`, `db/migrations/*` (generated + 1 custom SQL for citext/checks/pattern index)
 - `apps/api/src/plugins/`: `error-handler-plugin.ts`, `session-auth-plugin.ts` (decorates `request.user`), `security-plugins.ts` (helmet, cors, rate-limit, cookie)
 - `apps/api/src/modules/auth/`: `auth-provider-interface.ts`, `password-auth-provider.ts`, `session-service.ts`, `auth-routes.ts`
 - `apps/api/src/modules/users/`: `users-repository.ts`, `users-service.ts`, `users-routes.ts`

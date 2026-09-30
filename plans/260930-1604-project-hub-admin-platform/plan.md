@@ -37,7 +37,7 @@ Inputs: [brainstorm](../reports/brainstorm-260930-1604-project-hub-admin-platfor
 ## Phases
 | # | Phase | Status | Effort | Depends |
 |---|-------|--------|--------|---------|
-| 0 | [Wireframes & UI/UX review](phase-00-wireframes-and-uiux-review.md) | review | 4h | - |
+| 0 | [Wireframes & UI/UX review](phase-00-wireframes-and-uiux-review.md) | approved | 4h | - |
 | 1 | [Foundation, data model, migrations, auth](phase-01-foundation-data-model-and-auth.md) | pending | 28h | - |
 | 2 | [Permission engine](phase-02-permission-engine.md) | pending | 22h | 1 |
 | 3 | [Document editor (BlockNote)](phase-03-document-editor-blocknote.md) | pending | 24h | 2 (+0,7A for UI) |
@@ -117,3 +117,26 @@ Create project → add folder/page/form doc → set subtree permission → publi
 - Phase 1: Architecture section — added deployment topology note (done).
 - Phase 5: Requirements + Architecture + Implementation Steps — added feature flag (done).
 - Phase 8: Related Code Files + Implementation Steps — CI confirmed GitHub Actions (done).
+
+### Session 2 — 2026-09-30
+**Trigger:** Phase 0 wireframes stakeholder review (`/cook phase-00-wireframes-and-uiux-review.md`).
+**Questions asked:** 7 (3 open product questions from wireframes.md + 4 API-coverage gaps surfaced by cross-check)
+
+#### Confirmed Decisions
+- Publish scope: single project-level toggle (whole shared subtree) — reconfirms plan.md decision #3.
+- Share invite: email + role, multi-email in one invite; no org-picker/separate external-link flow.
+- Public view: reserve `comments` table as unwired placeholder for future "request change" (reopens MVP-out-of-scope item narrowly — schema only, no routes/UI).
+- Dashboard: add `projects.status` (active/draft/archived) + reuse `PATCH /projects/:id` for archive; doc count/owner confirmed derivable from existing fields.
+- Form docs: add `documents.status` (draft/submitted) + submit/reopen endpoints.
+- Trash/Restore: add Trash panel to screen 2 wireframe (backend already existed).
+- Dropped (YAGNI, no endpoint): project/node duplicate actions, editor inline comments.
+
+#### Action Items
+- [x] Phase 1: `projects.status`, `documents.status`, `comments` placeholder table added to schema.
+- [x] Phase 2: `PATCH /projects/:id` status transitions + `GET /projects` aggregate fields documented.
+- [x] Phase 4: submit/reopen endpoints + status-gated save added.
+- [x] wireframes.md: Review Decisions section added, status → approved.
+
+#### Impact on Phases
+- Phase 0: status `review` → `approved`. Unblocks Phase 7A.
+- Phase 1, 2, 4: schema/endpoint additions above (done).

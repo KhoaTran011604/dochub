@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3 · Editor — Project Hub Wireframes</title>
+<link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+
+<header class="topnav">
+  <div class="brand">PROJECT HUB <span>· wireframe review, structure only</span></div>
+  <nav class="tabs">
+    <a href="index.html">Overview</a>
+    <a href="01-dashboard.html">1 · Dashboard</a>
+    <a href="02-workspace.html">2 · Workspace</a>
+    <a href="03-editor.html" class="active">3 · Editor</a>
+    <a href="04-form.html">4 · Form</a>
+    <a href="05-public-site.html">5 · Public site</a>
+  </nav>
+</header>
+
+<section class="screen">
+  <div class="screen-head">
+    <h1>3 · Document Editor — "page" (BlockNote)</h1>
+    <div class="meta"><span class="chip">viewer role → read-only</span><span class="chip">409 conflict banner</span></div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="rail">
+      <a class="rail-logo" href="01-dashboard.html" aria-label="Project Hub home">◆</a>
+      <nav class="rail-nav" aria-label="Primary">
+        <a class="rail-item" href="01-dashboard.html" aria-label="Dashboard">⊞</a>
+      </nav>
+      <div class="rail-spacer"></div>
+      <div class="rail-avatar" role="img" aria-label="J.Tran account menu"></div>
+    </aside>
+
+    <div class="app-main">
+      <div class="wf topbar">
+        <a class="crumb-btn" href="02-workspace.html" aria-label="Up to Acme Co workspace">◆</a>
+        <span class="crumb"><a href="02-workspace.html">Acme Co</a> / <a href="02-workspace.html">Contracts</a> / <b>MSA Draft</b></span>
+        <span class="spacer"></span>
+        <span style="font-size:.75rem;color:var(--text-muted);">Saved 2m ago</span>
+        <span class="wf-btn primary">Share</span>
+      </div>
+
+      <div class="conflict">⚠ Someone else saved changes to this document. <u>Reload</u> to see their version — your unsaved edits will be lost.</div>
+
+      <div class="wf doc">
+        <h2>Master Service Agreement</h2>
+        <div style="font-size:.75rem;color:var(--text-faint);">Type '/' for commands…</div>
+
+        <h3>1. Parties</h3>
+        <div class="lineph w1"></div>
+        <div class="lineph w2"></div>
+
+        <div class="checklist">
+          <div><span class="box"></span>Checklist item one</div>
+          <div><span class="box done"></span>Checklist item two</div>
+        </div>
+
+        <div class="wf-dash imgph">[ Image placeholder ]</div>
+
+        <div class="callout">Callout — important clause about termination.</div>
+
+        <div>
+          <div class="lineph w3" style="margin-bottom:.4rem;"></div>
+          <div class="floatbar">
+            <span><b>B</b></span><span><i>i</i></span><span>H1</span><span>H2</span><span>Link</span><span>Color</span>
+          </div>
+          <div class="wf-label" style="margin-top:.3rem;">↑ floating toolbar, appears on text select</div>
+        </div>
+      </div>
+
+      <div class="wf slashmenu">
+        <span class="wf-label" style="width:100%;">/ slash menu →</span>
+        <span class="opt">Text</span><span class="opt">Heading</span><span class="opt">Bullet / Numbered</span>
+        <span class="opt">Checklist</span><span class="opt">Table</span><span class="opt">Image</span>
+        <span class="opt">Callout</span><span class="opt">Embed form reference</span>
+      </div>
+
+      <div class="wf ai-row"><span class="wf-btn primary">✦ Generate with AI</span></div>
+
+      <div class="notes">
+        <h2>Structural notes</h2>
+        <ul>
+          <li>The old lone "← Back" link is gone — navigation is now the shared icon rail (◆ → Dashboard) plus a clickable breadcrumb, same pattern as screen 2.</li>
+          <li>Per-block drag handle + ⋮ menu (turn into, duplicate, delete, color) on hover, left of block.</li>
+          <li>Selecting text shows the floating format toolbar — no inline comment thread in MVP (dropped, no endpoint; sign-off 2026-09-30).</li>
+          <li><b>Viewer role</b>: whole editor renders read-only — no slash menu, drag handles, floating toolbar, autosave/AI — same treatment as screen 5's public render.</li>
+          <li><b>✦ Generate with AI</b> opens a prompt panel and runs a background job that creates a <b>new sibling draft page</b> ("AI Draft: &lt;title&gt;") for review — it does not insert blocks inline. Pending/failed states show as a toast + entry in an AI jobs tray.</li>
+          <li>409 conflict banner appears on save collision (shown above).</li>
+        </ul>
+      </div>
+      <div class="flow"><a class="wf-btn" href="02-workspace.html">← Workspace</a><a class="wf-btn" href="04-form.html">Next: Form →</a></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

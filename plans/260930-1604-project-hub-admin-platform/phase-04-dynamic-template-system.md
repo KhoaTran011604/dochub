@@ -19,7 +19,9 @@
   - System admin: list/create template, create new version, deactivate; preview form live while editing (JSON editor for schema + ui_schema, RJSF preview side-by-side).
   - Templates filtered by `project_type`; project's type selects which templates offered.
   - Create form doc (editor on parent): pick latest template of project type → node + documents(doc_type=form, template_id, form_data={}).
-  - Save form data (editor): `{data, version}` → AJV validate against pinned template → 422 with AJV errors mapped to `{path,message}`; 409 on version mismatch.
+  - Save form data (editor): `{data, version}` → AJV validate against pinned template → 422 with AJV errors mapped to `{path,message}`; 409 on version mismatch. Only allowed while `status='draft'`.
+  - Submit (editor): validates data, sets `status='submitted'` → subsequent saves 409 `FORM_SUBMITTED` unless reopened; viewers always read-only.
+  - Reopen (editor/admin): sets `status='draft'` again, editable.
   - Optional "upgrade to latest template version": validate current data vs new schema; if valid switch `template_id`, else 422 with errors.
 - Non-functional: validator compile cached (LRU 200); schema size ≤ 256KB; validation < 10ms typical.
 
@@ -40,7 +42,9 @@ API:
 | POST | /admin/templates/:key/versions | system admin |
 | PATCH | /admin/templates/:key (deactivate) | system admin |
 | POST | /documents (`docType:'form'`, `templateId`) | editor on parent |
-| PUT | /documents/:id/form-data | editor |
+| PUT | /documents/:id/form-data | editor, status=draft only |
+| POST | /documents/:id/submit | editor |
+| POST | /documents/:id/reopen | editor |
 | POST | /documents/:id/upgrade-template | editor |
 
 ## Related Code Files (create)
@@ -59,7 +63,7 @@ Backend
 2. `template-schema-guard.ts`: `ajv.validateSchema` (draft-07 meta) + restriction walk; unit tests with malicious schemas (remote $ref, huge, non-object root).
 3. Templates repo/service: create (key unique, v1, is_latest), newVersion (tx: lock rows of key, insert v+1, flip flags), deactivate (is_latest rows hidden from pickers; existing docs unaffected), list/get.
 4. `json-schema-validator-cache.ts`: LRU keyed by template id → compiled fn.
-5. Form docs: create (template must be latest + match project type), save data (validate → 422 map errors `instancePath`→path), upgrade-template.
+5. Form docs: create (template must be latest + match project type, `status` defaults `draft`), save data (validate → 422 map errors `instancePath`→path, reject if `status='submitted'`), submit (validate + set `status='submitted'`), reopen (editor/admin, set `status='draft'`), upgrade-template.
 6. Integration tests: valid/invalid data, pinned version after template update, upgrade success/fail, non-admin blocked.
 Frontend
 7. Template queries/mutations (keys: `queryKeys.templates.list(projectType)`, `.detail(id)` in `queries/keys.ts`).
@@ -72,7 +76,7 @@ Frontend
 - [ ] Template schema guard + malicious-schema tests
 - [ ] Templates repo/service/routes (versioning)
 - [ ] Validator cache
-- [ ] Form docs create/save/upgrade + tests
+- [ ] Form docs create/save/submit/reopen/upgrade + tests
 - [ ] Web: template queries/mutations
 - [ ] Web: form-document-view (edit + readOnly)
 - [ ] Web: admin template list/editor w/ preview

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4 · Form — Project Hub Wireframes</title>
+<link rel="stylesheet" href="wireframe.css">
+</head>
+<body>
+
+<header class="topnav">
+  <div class="brand">PROJECT HUB <span>· wireframe review, structure only</span></div>
+  <nav class="tabs">
+    <a href="index.html">Overview</a>
+    <a href="01-dashboard.html">1 · Dashboard</a>
+    <a href="02-workspace.html">2 · Workspace</a>
+    <a href="03-editor.html">3 · Editor</a>
+    <a href="04-form.html" class="active">4 · Form</a>
+    <a href="05-public-site.html">5 · Public site</a>
+  </nav>
+</header>
+
+<section class="screen">
+  <div class="screen-head">
+    <h1>4 · Dynamic Template Form — "form" (rjsf)</h1>
+    <div class="meta"><span class="chip">JSON-schema → widgets</span><span class="chip">Draft / Submitted / Reopen</span></div>
+  </div>
+
+  <div class="app-shell">
+    <aside class="rail">
+      <a class="rail-logo" href="01-dashboard.html" aria-label="Project Hub home">◆</a>
+      <nav class="rail-nav" aria-label="Primary">
+        <a class="rail-item" href="01-dashboard.html" aria-label="Dashboard">⊞</a>
+      </nav>
+      <div class="rail-spacer"></div>
+      <div class="rail-avatar" role="img" aria-label="J.Tran account menu"></div>
+    </aside>
+
+    <div class="app-main">
+      <div class="wf topbar">
+        <a class="crumb-btn" href="02-workspace.html" aria-label="Up to Acme Co workspace">◆</a>
+        <span class="crumb"><a href="02-workspace.html">Acme Co</a> / <a href="02-workspace.html">Deliverables</a> / <b>Sprint Report</b></span>
+        <span class="pill warn">Draft</span>
+        <span class="spacer"></span>
+        <span class="wf-btn">Save</span>
+        <span class="wf-btn primary">Submit</span>
+      </div>
+
+      <div class="wf form">
+        <div class="field">
+          <label>Project Name <b>*</b></label>
+          <div class="wf-input">Acme Co</div>
+        </div>
+        <div class="field">
+          <label>Sprint Number <b>*</b></label>
+          <div class="wf-input">12</div>
+        </div>
+        <div class="field">
+          <label>Status <b>*</b></label>
+          <div class="wf-input">In Progress ▾</div>
+        </div>
+
+        <div class="fieldset">
+          <div class="wf-label">Team Info (nested object)</div>
+          <div class="field" style="margin:0;">
+            <label>Lead <b>*</b></label>
+            <div class="wf-input">K.Le</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:.78rem;margin-bottom:.3rem;color:var(--text-muted);">Members (array)</label>
+            <div class="arr-row"><div class="wf-input">J.Tran</div><span class="wf-btn">✕</span></div>
+            <div class="arr-row" style="margin-top:.35rem;"><div class="wf-input">M.Nguyen</div><span class="wf-btn">✕</span></div>
+            <div class="wf-btn" style="margin-top:.5rem;width:fit-content;">+ Add member</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Budget (number)</label>
+          <div class="wf-row"><div class="wf-input" style="flex:1;">12000</div><span class="wf-label">USD</span></div>
+        </div>
+        <div class="field">
+          <label>Notes (textarea)</label>
+          <div class="wf-input" style="height:3.2rem;"></div>
+        </div>
+
+        <div class="err">⚠ Sprint Number must be a positive integer</div>
+      </div>
+
+      <div class="notes">
+        <h2>Structural notes</h2>
+        <ul>
+          <li>Rail + breadcrumb replace the old "← Back" link, same as screen 3 — one nav pattern across every authenticated screen instead of three different ones.</li>
+          <li>Widgets map 1:1 from JSON-schema types: string→text, number→numeric, enum→select, object→bordered fieldset (collapsible if deep), array→repeatable rows with add/remove.</li>
+          <li>Required fields marked *; inline validation on blur + on submit; errors under field and summarized at top if submit is blocked. <b>Submit</b> uses the gradient CTA style; disabled/muted (no gradient) while blocking errors remain.</li>
+          <li><b>Save</b> = persists draft (documents.status='draft'). <b>Submit</b> = validates + sets status='submitted': fields become read-only, badge shows "Submitted", editor/admin see a <b>Reopen</b> button in place of Save/Submit; viewers always read-only.</li>
+          <li>Same permission panel from screen 2 applies at the form level, not per-field.</li>
+        </ul>
+      </div>
+      <div class="flow"><a class="wf-btn" href="03-editor.html">← Editor</a><a class="wf-btn" href="05-public-site.html">Next: Public site →</a></div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

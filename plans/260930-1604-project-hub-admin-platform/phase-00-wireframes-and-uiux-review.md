@@ -5,7 +5,7 @@
 - [plan.md](plan.md) | [brainstorm](../reports/brainstorm-260930-1604-project-hub-admin-platform.md)
 
 ## Overview
-- Priority: P1 (gate) | Status: **review** | Effort: 4h
+- Priority: P1 (gate) | Status: **approved** | Effort: 4h
 - Stakeholder review of 5 key screens. **Gates all `apps/web` work (Phase 7A, UI parts of 3/4/5/6).** Does NOT block backend Phases 1-5.
 
 ## Key Insights
@@ -38,11 +38,11 @@
 7. Record decisions + change requests; stakeholder sign-off → set status `approved`.
 
 ## Todo List
-- [ ] Wireframes delivered for 5 screens
-- [ ] API-coverage cross-check done
-- [ ] Permission panel semantics approved
-- [ ] Editor/form/public states approved
-- [ ] Stakeholder sign-off recorded
+- [x] Wireframes delivered for 5 screens
+- [x] API-coverage cross-check done
+- [x] Permission panel semantics approved
+- [x] Editor/form/public states approved
+- [x] Stakeholder sign-off recorded
 
 ## Success Criteria
 - Written sign-off in `wireframes.md`; no open UI questions blocking Phase 7A.

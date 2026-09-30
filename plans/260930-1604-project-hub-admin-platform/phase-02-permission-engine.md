@@ -48,8 +48,8 @@ API (all `/api`):
 | Method | Path | Min role |
 |---|---|---|
 | POST | /projects | system admin |
-| GET | /projects | visible projects (≥viewer on project node) |
-| GET/PATCH | /projects/:id | viewer / admin |
+| GET | /projects | visible projects (≥viewer on project node); each row includes `status`, `docCount` (COUNT descendant document-type nodes via closure), `ownerName` (project node's `created_by` joined to users) — dashboard card fields |
+| GET/PATCH | /projects/:id | viewer / admin; PATCH accepts `status` transitions (active/draft/archived) — dashboard "Archive" action reuses this, no separate endpoint |
 | GET | /projects/:id/tree | returns visible nodes `{id,parentId,type,title,position,effectiveRole}` |
 | POST | /nodes (folder) | editor on parent |
 | PATCH | /nodes/:id (rename/reorder) | editor |
@@ -75,7 +75,7 @@ API (all `/api`):
 3. `permission-guard.ts` preHandler factory; 404/403 semantics; role compare via `roleRank` from shared.
 4. `permission-repository.ts`: upsert/delete grant; list explicit grants on node; list inherited (for each user having grants on ancestors: nearest grant + source node id/title).
 5. `permission-service.ts`: validate target user active; forbid role > admin; last-admin rule on project node (tx + `FOR UPDATE` on grants of node); clear cache.
-6. Projects module: create (tx: tree-repository.create project + projects row + admin grant), list visible, get, patch (title/description).
+6. Projects module: create (tx: tree-repository.create project + projects row + admin grant), list visible (with `docCount`/`ownerName`/`status` aggregates), get, patch (title/description/status).
 7. Nodes module: folder create, rename/reorder (position), move (guards + tree-repository.move), delete (resolveMany over subtree ids from `path LIKE`; all ≥editor else 403 `SUBTREE_RESTRICTED`; soft via tree-repository.deleteNode), restore (guard + tree-repository.restoreNode, 409 if parent trashed), permanentDelete (system-admin guard + tree-repository.permanentDeleteNode), project trash listing.
 8. `/me/shared`: visible nodes where parent is null-visible (compute from `listVisibleTree` per project with grants for user; query distinct projects from user's grants).
 9. Wire `onTreeMutated` → clear `request.permCache`.

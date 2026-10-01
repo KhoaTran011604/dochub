@@ -1,0 +1,19 @@
+# Claude/assistant config - not part of shipped codebase
+.claude/
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.turbo/
+
+# Editor/OS
+.DS_Store
+*.log

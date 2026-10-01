@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factory A — Labor Safety Records (Public)</title>
+<link rel="stylesheet" href="wireframe.css">
+<style>
+  body { background: var(--bg-app); }
+  .pub-topbar {
+    height: 64px; display: flex; align-items: center; padding: 0 32px;
+    border-bottom: 1px solid var(--border); background: var(--bg-surface);
+  }
+  .pub-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+  .pub-powered { margin-left: auto; font-size: 12px; color: var(--text-tertiary); }
+  .pub-wrap { max-width: 1040px; margin: 0 auto; padding: 32px 24px; display: grid; grid-template-columns: 240px 1fr; gap: 24px; align-items: start; }
+  .pub-nav .panel { padding: 12px 8px; }
+  .pub-nav h3 { padding: 4px 10px 10px; font-size: 12px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .04em; }
+  .pub-tree .tree-row { cursor: default; }
+  .pub-main { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--r-card); padding: 40px; box-shadow: 0 1px 2px rgba(20,23,15,.04); }
+  .pub-main .eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-tertiary); margin-bottom: 8px; }
+  .pub-main h1 { font-size: 28px; margin-bottom: 6px; }
+  .pub-main .meta { font-size: 13px; color: var(--text-tertiary); margin-bottom: 28px; }
+  .pub-main p { color: var(--text-secondary); line-height: 1.7; margin: 0 0 16px; }
+  .pub-main ul { color: var(--text-secondary); line-height: 1.8; margin: 0 0 20px; padding-left: 22px; }
+  .pub-main h2 { font-size: 18px; margin: 28px 0 12px; }
+  .attachments-head { display: flex; align-items: center; gap: 8px; }
+  .attachments-head svg { width: 17px; height: 17px; color: var(--text-tertiary); }
+  .attachments-head .badge { margin-left: 2px; }
+</style>
+</head>
+<body>
+  <header class="pub-topbar">
+    <div class="pub-brand"><span class="logo-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11H8l-4 4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg></span> Factory A — Labor Safety Records</div>
+    <span class="pub-powered">Powered by DocHub</span>
+  </header>
+
+  <div class="pub-wrap">
+    <nav class="pub-nav">
+      <div class="panel">
+        <h3>Contents</h3>
+        <div class="tree pub-tree">
+          <div class="tree-row"><span class="icon c-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span>Labor Safety Training</div>
+          <div class="tree-row is-active tree-indent-1"><span class="icon c-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>Q3 Training Minutes</div>
+          <div class="tree-row tree-indent-1"><span class="icon c-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>Safety Training Procedure</div>
+          <div class="tree-row"><span class="icon c-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span>Personal Protective Equipment (PPE)</div>
+          <div class="tree-row tree-indent-1"><span class="icon c-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>PPE Inventory List</div>
+          <div class="tree-row tree-indent-1"><span class="icon c-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>PPE Acceptance Minutes</div>
+          <div class="tree-row"><span class="icon c-folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span>Incidents &amp; Response</div>
+          <div class="tree-row tree-indent-1"><span class="icon c-page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>September Incident Report</div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="pub-main">
+      <div class="eyebrow">Labor Safety Training</div>
+      <h1>Occupational Safety Training Minutes — Q3 2026</h1>
+      <div class="meta">Last updated: 28 Sep, 2026</div>
+
+      <p>On September 15, 2026, Factory A held its quarterly occupational safety training session for all production staff. The session focused on safe machine operation procedures, use of personal protective equipment, and emergency response procedures.</p>
+
+      <h2>Training Content</h2>
+      <ul>
+        <li>Safety regulations for operating stamping and cutting machines</li>
+        <li>Guidelines for using and storing personal protective equipment (PPE)</li>
+        <li>First aid and incident reporting procedures</li>
+        <li>Fire and explosion evacuation drills</li>
+      </ul>
+
+      <p>A total of 86 out of 90 staff attended in full. The 4 excused absences were scheduled for makeup training on September 22, 2026. The end-of-session assessment showed a 97% pass rate among staff.</p>
+
+      <h2>Assessment and Recommendations</h2>
+      <p>The Labor Safety Committee rated the session as highly effective and recommends maintaining the quarterly training schedule, with the addition of chemical safety content in the upcoming Q4 training.</p>
+
+      <h2 class="attachments-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5l-8.5 8.5a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3l7.5-7.5"/></svg>
+        Attachments <span class="badge badge-neutral">4</span>
+      </h2>
+      <div class="attachment-list">
+        <div class="attachment-card">
+          <span class="file-icon pdf"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>
+          <div class="file-meta">
+            <span class="file-name">Q3 Training Minutes — signed.pdf</span>
+            <span class="file-sub">PDF · 2.4 MB · Updated 28 Sep, 2026</span>
+          </div>
+          <button class="dl-btn" type="button" aria-label="Download Q3 Training Minutes — signed.pdf" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg></button>
+        </div>
+        <div class="attachment-card">
+          <span class="file-icon img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.8"/><path d="M21 15l-5-5-9 9"/></svg></span>
+          <div class="file-meta">
+            <span class="file-name">Training site — warehouse A area.jpg</span>
+            <span class="file-sub">JPG · 3.1 MB · Updated 15 Sep, 2026</span>
+          </div>
+          <button class="dl-btn" type="button" aria-label="Download Training site — warehouse A area.jpg" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg></button>
+        </div>
+        <div class="attachment-card">
+          <span class="file-icon sheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg></span>
+          <div class="file-meta">
+            <span class="file-name">Q3 Attendance List.xlsx</span>
+            <span class="file-sub">XLSX · 486 KB · Updated 16 Sep, 2026</span>
+          </div>
+          <button class="dl-btn" type="button" aria-label="Download Q3 Attendance List.xlsx" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg></button>
+        </div>
+        <div class="attachment-card">
+          <span class="file-icon doc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>
+          <div class="file-meta">
+            <span class="file-name">Emergency Evacuation Procedure.docx</span>
+            <span class="file-sub">DOCX · 812 KB · Updated 10 Sep, 2026</span>
+          </div>
+          <button class="dl-btn" type="button" aria-label="Download Emergency Evacuation Procedure.docx" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M5 21h14"/></svg></button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

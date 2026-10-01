@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Project Document Hub — Wireframes</title>
+<link rel="stylesheet" href="wireframe.css" />
+<style>
+  body { padding: 48px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .hero { margin-bottom: 32px; }
+  .hero p { color: var(--text-secondary); margin-top: 8px; max-width: 560px; }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    display: flex; align-items: center; gap: 16px; padding: 16px 20px;
+    background: #fff; border: 1px solid var(--border); border-radius: var(--r-panel);
+  }
+  .row:hover { border-color: var(--border-strong); }
+  .num { width: 28px; height: 28px; border-radius: 8px; background: var(--neutral-bg); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+  .row h3 { margin-bottom: 2px; }
+  .row p { margin: 0; color: var(--text-secondary); font-size: 13px; }
+  .row .go { margin-left: auto; color: var(--text-tertiary); font-size: 13px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <span class="badge badge-neutral">Wireframes · v1</span>
+      <h1 style="margin-top:10px">Project Document Hub — Admin Platform</h1>
+      <p>Mid-fidelity wireframes covering the core flow: create project → organize folders/docs → fill dynamic form templates → set sharing/ACL → publish public read-only site.</p>
+    </div>
+    <div class="list">
+      <a class="row" href="01-dashboard.html"><div class="num">01</div><div><h3>Dashboard</h3><p>Project list overview, KPI cards, status</p></div><span class="go">Open →</span></a>
+      <a class="row" href="02-workspace.html"><div class="num">02</div><div><h3>Project Workspace</h3><p>Folder/doc tree, doc list, node detail rail</p></div><span class="go">Open →</span></a>
+      <a class="row" href="03-editor-page.html"><div class="num">03</div><div><h3>Page Editor (BlockNote)</h3><p>Block-based rich text document editing</p></div><span class="go">Open →</span></a>
+      <a class="row" href="04-editor-form.html"><div class="num">04</div><div><h3>Form Document (Dynamic Template)</h3><p>JSON Schema-driven form, draft/submit</p></div><span class="go">Open →</span></a>
+      <a class="row" href="05-permissions.html"><div class="num">05</div><div><h3>Permissions & Sharing</h3><p>Inherited ACL tree, invite by email</p></div><span class="go">Open →</span></a>
+      <a class="row" href="06-templates.html"><div class="num">06</div><div><h3>Template Management</h3><p>Template list, versions, schema field builder</p></div><span class="go">Open →</span></a>
+      <a class="row" href="07-public-site.html"><div class="num">07</div><div><h3>Public Published Site</h3><p>Branded read-only external view</p></div><span class="go">Open →</span></a>
+      <a class="row" href="08-new-document.html"><div class="num">08</div><div><h3>New Document (Notion-like)</h3><p>Blank block editor, heading/text-style slash menu</p></div><span class="go">Open →</span></a>
+    </div>
+  </div>
+</body>
+</html>

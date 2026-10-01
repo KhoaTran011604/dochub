@@ -37,7 +37,6 @@ Inputs: [brainstorm](../reports/brainstorm-260930-1604-project-hub-admin-platfor
 ## Phases
 | # | Phase | Status | Effort | Depends |
 |---|-------|--------|--------|---------|
-| 0 | [Wireframes & UI/UX review](phase-00-wireframes-and-uiux-review.md) | approved | 4h | - |
 | 1 | [Foundation, data model, migrations, auth](phase-01-foundation-data-model-and-auth.md) | pending | 28h | - |
 | 2 | [Permission engine](phase-02-permission-engine.md) | pending | 22h | 1 |
 | 3 | [Document editor (BlockNote)](phase-03-document-editor-blocknote.md) | pending | 24h | 2 (+0,7A for UI) |

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Editor — Page (BlockNote) · Project Document Hub</title>
+<link rel="stylesheet" href="wireframe.css" />
+<style>
+  .doc-toolbar { display: flex; align-items: center; gap: 16px; padding: 14px 28px; border-bottom: 1px solid var(--border); background: var(--bg-surface); }
+  .crumb { font-size: 13px; color: var(--text-tertiary); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .crumb .sep { color: var(--border-strong); }
+  .doc-title-row { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+  .doc-title { font-size: 22px; font-weight: 700; letter-spacing: -.01em; padding: 2px 4px; border-radius: 6px; }
+  .doc-title:hover { background: #F6F7F3; }
+  .doc-toolbar__left { display: flex; flex-direction: column; gap: 2px; }
+  .doc-toolbar__actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  /* ---- Layout: editor column + right rail ---- */
+  .editor-layout { display: grid; grid-template-columns: 1fr 220px; align-items: start; gap: 0; }
+  .editor-wrap { max-width: 780px; margin: 0 auto; }
+  .editor-rail { width: 220px; flex-shrink: 0; padding: 40px 20px 20px; position: sticky; top: 0; display: flex; flex-direction: column; gap: 22px; }
+  .editor-rail__label { margin-bottom: 8px; }
+  .presence-stack { display: flex; }
+  .presence-stack .avatar { width: 28px; height: 28px; font-size: 11px; border: 2px solid #fff; margin-left: -8px; }
+  .presence-stack .avatar:first-child { margin-left: 0; }
+  .presence-stack .avatar-more { background: var(--neutral-bg); color: var(--text-secondary); }
+  .toc { display: flex; flex-direction: column; gap: 2px; }
+  .toc-item { font-size: 13px; font-weight: 600; color: var(--text-tertiary); padding: 6px 8px; border-radius: 6px; }
+  .toc-item:hover { background: #F1F3EC; color: var(--text-secondary); }
+  .toc-item.is-active { color: var(--text-primary); background: #F1F3EC; border-left: 2px solid var(--accent-forest); padding-left: 6px; }
+  .rail-meta { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+  .rail-meta > div { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+  .rail-meta dt { color: var(--text-tertiary); margin: 0; font-weight: 600; }
+  .rail-meta dd { margin: 0; color: var(--text-primary); font-weight: 600; text-align: right; }
+
+  /* ---- Page meta (icon / cover / last edited) ---- */
+  .page-meta-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .page-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-lime); color: var(--accent-forest); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .page-icon svg { width: 22px; height: 22px; }
+  .page-meta-ghosts { display: flex; gap: 4px; }
+  .ghost-link { font-size: 13px; font-weight: 600; color: var(--text-tertiary); padding: 5px 9px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .ghost-link:hover { background: #F1F3EC; color: var(--text-secondary); }
+  .ghost-link svg { width: 14px; height: 14px; }
+  .page-edited-meta { font-size: 12px; color: var(--text-tertiary); margin: 0 0 20px; display: flex; align-items: center; gap: 6px; }
+  .page-edited-meta .avatar { width: 18px; height: 18px; font-size: 9px; }
+
+  /* ---- Blocks ---- */
+  .block { position: relative; padding: 6px 4px 6px 32px; border-radius: 6px; }
+  .block:hover { background: #FAFBF8; }
+  .block h1 { font-size: 28px; margin: 4px 0; }
+  .block h2 { font-size: 19px; margin: 4px 0; display: flex; align-items: center; }
+  .block p { margin: 0; color: var(--text-primary); font-size: 15px; line-height: 1.7; }
+  .block p mark { background: rgba(183,224,67,.45); border-radius: 3px; padding: 0 1px; }
+  .block ul { margin: 4px 0; padding-left: 22px; font-size: 15px; line-height: 1.8; }
+  .block ul li::marker { color: var(--accent-forest); }
+  .img-block { border: 1.5px dashed var(--border-strong); border-radius: var(--r-panel); height: 180px; display: flex; align-items: center; justify-content: center; background: #FAFBF8; }
+  .add-block-row { display: flex; align-items: center; gap: 8px; padding: 10px 4px 10px 32px; color: var(--text-tertiary); font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer; }
+  .add-block-row:hover { background: #F6F7F3; color: var(--text-secondary); }
+  .add-plus { width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+  /* ---- Per-block hover controls (add + drag handle) ---- */
+  .block-controls { position: absolute; left: 0; top: 8px; display: flex; align-items: center; gap: 1px; opacity: 0; transition: opacity .12s; }
+  .block:hover .block-controls, .block.is-focused .block-controls { opacity: 1; }
+  .block-ctrl-btn { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); cursor: pointer; flex-shrink: 0; }
+  .block-ctrl-btn:hover { background: #F1F3EC; color: var(--text-secondary); }
+  .block-ctrl-btn svg { width: 15px; height: 15px; }
+  .comment-marker { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; border-radius: var(--r-pill); background: var(--warning-bg); color: var(--warning); padding: 2px 7px; margin-left: 10px; cursor: pointer; }
+  .comment-marker svg { width: 11px; height: 11px; }
+
+  /* ---- Floating selection toolbar (formatting) ---- */
+  .selection-toolbar { position: absolute; left: 60px; top: -42px; display: inline-flex; align-items: center; gap: 1px; background: var(--accent-forest); border-radius: 8px; padding: 4px; box-shadow: 0 10px 24px rgba(20,23,15,.28); z-index: 5; }
+  .selection-toolbar button { width: 27px; height: 27px; border: none; background: transparent; color: #E7ECD9; font-size: 13px; font-family: inherit; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .selection-toolbar button:hover { background: rgba(255,255,255,.14); }
+  .selection-toolbar button svg { width: 14px; height: 14px; }
+  .selection-toolbar .st-sep { width: 1px; height: 16px; background: rgba(255,255,255,.2); margin: 0 3px; flex-shrink: 0; }
+
+  /* ---- Block context menu (from drag handle) ---- */
+  .block-menu { position: absolute; left: 30px; top: 30px; width: 208px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-panel); box-shadow: 0 14px 30px rgba(20,23,15,.18); z-index: 6; padding: 6px; }
+  .block-menu__item { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 7px; font-size: 13.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+  .block-menu__item:hover { background: #F1F3EC; }
+  .block-menu__item svg { width: 15px; height: 15px; color: var(--text-tertiary); flex-shrink: 0; }
+  .block-menu__item.danger { color: var(--danger); }
+  .block-menu__item.danger svg { color: var(--danger); }
+  .block-menu__divider { height: 1px; background: var(--border); margin: 5px 3px; }
+
+  /* ---- Slash command menu ---- */
+  .slash-menu { position: relative; width: 288px; background: #fff; border: 1px solid var(--border); border-radius: var(--r-panel); box-shadow: 0 14px 30px rgba(20,23,15,.16); padding: 6px; margin: 4px 0 4px 32px; }
+  .slash-menu__search { display: flex; align-items: center; gap: 8px; padding: 6px 9px 10px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .slash-menu__search svg { width: 14px; height: 14px; color: var(--text-tertiary); flex-shrink: 0; }
+  .slash-menu__search span { font-size: 13px; color: var(--text-tertiary); }
+  .slash-menu__label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-tertiary); padding: 8px 9px 4px; }
+  .slash-menu__item { display: flex; align-items: center; gap: 10px; padding: 6px 9px; border-radius: 7px; cursor: pointer; }
+  .slash-menu__item:hover, .slash-menu__item.is-selected { background: #F1F3EC; }
+  .slash-menu__icon { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: #FAFBF8; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; font-size: 11px; font-weight: 800; }
+  .slash-menu__icon svg { width: 15px; height: 15px; }
+  .slash-menu__title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); display: block; }
+  .slash-menu__desc { font-size: 11.5px; color: var(--text-tertiary); display: block; }
+
+  /* ---- New block types ---- */
+  .callout { display: flex; gap: 10px; padding: 14px 16px; border-radius: var(--r-panel); background: var(--info-bg); }
+  .callout.warning { background: var(--warning-bg); }
+  .callout-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--info); margin-top: 1px; }
+  .callout.warning .callout-icon { color: var(--warning); }
+  .callout p { font-size: 14px; line-height: 1.6; margin: 0; }
+
+  .quote-block { border-left: 3px solid var(--accent-forest); padding: 2px 0 2px 16px; }
+  .quote-block p { font-style: italic; color: var(--text-secondary); font-size: 15px; margin: 0; }
+  .quote-block cite { display: block; margin-top: 6px; font-size: 12.5px; font-style: normal; font-weight: 600; color: var(--text-tertiary); }
+
+  .code-block { background: #14170F; color: #E7ECD9; border-radius: var(--r-panel); padding: 14px 16px; overflow-x: auto; }
+  .code-block .code-lang { display: block; color: #8B9180; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+  .code-block pre { margin: 0; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; }
+
+  .divider-block { border: none; border-top: 1px solid var(--border); margin: 6px 0; }
+
+  .toggle-block summary { cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; list-style: none; }
+  .toggle-block summary::-webkit-details-marker { display: none; }
+  .toggle-block summary .chev { width: 16px; height: 16px; color: var(--text-tertiary); transition: transform .12s; flex-shrink: 0; }
+  .toggle-block[open] summary .chev { transform: rotate(90deg); }
+  .toggle-block .toggle-body { padding: 8px 0 4px 22px; font-size: 14.5px; color: var(--text-secondary); line-height: 1.7; }
+
+  .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 3px 0; }
+  .todo-item input[type=checkbox] { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--accent-forest); flex-shrink: 0; cursor: pointer; }
+  .todo-item span { font-size: 15px; line-height: 1.6; }
+  .todo-item.is-done span { color: var(--text-tertiary); text-decoration: line-through; }
+
+  .editor-table { width: 100%; border-collapse: collapse; }
+  .editor-table th, .editor-table td { border: 1px solid var(--border); padding: 8px 12px; font-size: 13.5px; text-align: left; }
+  .editor-table th { background: #FAFBF8; font-weight: 700; color: var(--text-secondary); font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar__top">
+      <div class="sidebar__logo">Doc<span class="logo-accent">Hub</span></div>
+      <button class="sidebar__collapse" type="button" aria-label="Collapse sidebar" title="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg></button>
+    </div>
+    <div class="sidebar__section-label text-tiny">MENU</div>
+    <nav class="sidebar__nav">
+      <a class="nav-item" href="01-dashboard.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span><span>Overview</span></a>
+      <a class="nav-item is-active" href="02-workspace.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span><span>Projects</span></a>
+      <a class="nav-item" href="06-templates.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/><rect x="13" y="14" width="8" height="7" rx="1.5"/></svg></span><span>Templates</span></a>
+      <a class="nav-item" href="05-permissions.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 21v-1.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/><path d="M16.5 3.8a3.5 3.5 0 0 1 0 6.8"/><path d="M21.5 21v-1.5a5 5 0 0 0-3.3-4.7"/></svg></span><span>Sharing</span><span class="nav-badge">14</span></a>
+      <a class="nav-item" href="07-public-site.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c2.8 2.6 4.5 6 4.5 9s-1.7 6.4-4.5 9"/><path d="M12 3c-2.8 2.6-4.5 6-4.5 9s1.7 6.4 4.5 9"/></svg></span><span>Public Site</span></a>
+    </nav>
+    <div class="sidebar__footer">
+      <a class="nav-item" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="21" x2="5" y2="13"/><line x1="5" y1="9" x2="5" y2="3"/><circle cx="5" cy="11" r="2"/><line x1="12" y1="21" x2="12" y2="11"/><line x1="12" y1="7" x2="12" y2="3"/><circle cx="12" cy="9" r="2"/><line x1="19" y1="21" x2="19" y2="15"/><line x1="19" y1="11" x2="19" y2="3"/><circle cx="19" cy="13" r="2"/></svg></span><span>Settings</span></a>
+    </div>
+  </aside>
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar__actions">
+        <button class="icon-btn-circle" type="button" aria-label="Toggle light/dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></button>
+        <button class="icon-btn-circle" type="button" aria-label="Share page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg></button>
+        <button class="user-chip" type="button">
+          <span class="avatar">KT</span>
+          <span class="user-chip__meta"><span class="user-chip__name">Khoa Tran</span><span class="user-chip__email">khoa.tran@dochub.vn</span></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="doc-toolbar">
+      <div class="doc-toolbar__left">
+        <div class="crumb">Binh Duong Factory <span class="sep">/</span> Operations Documents <span class="sep">/</span> <span>Q3 2026 Progress Report</span></div>
+        <div class="doc-title-row">
+          <span class="doc-title">Q3 2026 Progress Report</span>
+          <span class="badge badge-neutral">Draft</span>
+        </div>
+      </div>
+      <div class="doc-toolbar__actions">
+        <button class="btn btn-secondary">✨ AI Draft</button>
+        <button class="btn btn-secondary">Share</button>
+        <button class="btn btn-primary">Publish</button>
+      </div>
+    </div>
+
+    <main class="content editor-layout">
+      <div class="editor-wrap card" style="padding:40px 48px;">
+
+        <div class="page-meta-row">
+          <div class="page-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></div>
+          <div class="page-meta-ghosts">
+            <span class="ghost-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-4-.94L3 20l1.06-3.6a8.4 8.4 0 0 1-.56-3.4A8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg>Add comment</span>
+            <span class="ghost-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.4"/><path d="M21 16l-5.5-5.5-3 3-2-2L3 18"/></svg>Add cover image</span>
+          </div>
+        </div>
+
+        <div class="block">
+          <h1>Q3 2026 Progress Report</h1>
+        </div>
+        <div class="page-edited-meta"><span class="avatar">KT</span> Last edited by Khoa Tran · 6 minutes ago · <span class="comment-marker" style="margin-left:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-4-.94L3 20l1.06-3.6a8.4 8.4 0 0 1-.56-3.4A8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg>3 comments</span></div>
+
+        <div class="block">
+          <div class="block-controls">
+            <span class="block-ctrl-btn" title="Add block below"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            <span class="block-ctrl-btn" title="Drag to reorder"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg></span>
+          </div>
+          <p>In Q3 2026, the Binh Duong factory project completed <mark>78% of the planned work</mark>, focusing on installing the packaging line and commissioning the fire safety system in Warehouse A.</p>
+          <div class="selection-toolbar">
+            <button title="Bold" style="font-weight:800;">B</button>
+            <button title="Italic" style="font-style:italic;">I</button>
+            <button title="Underline" style="text-decoration:underline;">U</button>
+            <button title="Strikethrough" style="text-decoration:line-through;">S</button>
+            <span class="st-sep"></span>
+            <button title="Code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg></button>
+            <button title="Insert link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l2.83-2.83a4 4 0 1 0-5.66-5.66l-1.06 1.06"/><path d="M14 10a4 4 0 0 0-5.66 0L5.51 12.83a4 4 0 1 0 5.66 5.66l1.06-1.06"/></svg></button>
+            <button title="Comment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-4-.94L3 20l1.06-3.6a8.4 8.4 0 0 1-.56-3.4A8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg></button>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="block-controls">
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg></span>
+          </div>
+          <ul>
+            <li>Completed installation of 4/5 automated packaging lines</li>
+            <li>Fire safety system commissioning for Warehouse A, passed requirements</li>
+            <li>Operational training for 32 staff on the new production shift</li>
+          </ul>
+        </div>
+
+        <div class="block">
+          <div class="block-controls">
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg></span>
+          </div>
+          <div class="quote-block">
+            <p>"Construction quality this quarter exceeded expectations, especially in the fire safety commissioning phase."</p>
+            <cite>— Site Foreman, Nguyen Van Hai</cite>
+          </div>
+        </div>
+
+        <div class="block is-focused" style="position:relative;">
+          <h2>Risks &amp; Issues <span class="comment-marker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-4-.94L3 20l1.06-3.6a8.4 8.4 0 0 1-.56-3.4A8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg>2</span></h2>
+          <div class="block-controls">
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+            <span class="block-ctrl-btn"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg></span>
+          </div>
+          <div class="block-menu">
+            <div class="block-menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13l-3-3"/><path d="M20 17H7l3 3"/></svg>Turn into…</div>
+            <div class="block-menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s6.5 7.2 6.5 11.5a6.5 6.5 0 1 1-13 0C5.5 9.2 12 2 12 2z"/></svg>Color</div>
+            <div class="block-menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16V5a1 1 0 0 1 1-1h11"/></svg>Duplicate</div>
+            <div class="block-menu__item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><path d="M14 6h7"/><path d="M18 3v6"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Move to…</div>
+            <div class="block-menu__divider"></div>
+            <div class="block-menu__item danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>Delete block</div>
+          </div>
+        </div>
+
+        <div class="block">
+          <p>The electrical equipment supply schedule from the subcontractor is running about 2 weeks behind the original plan; the project team is working with the supplier to shorten the delivery time.</p>
+        </div>
+
+        <div class="block">
+          <div class="callout warning">
+            <span class="callout-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9.5" x2="12" y2="13.5"/><circle cx="12" cy="16.5" r="1" fill="currentColor" stroke="none"/></svg></span>
+            <p>The fire safety commissioning milestone for Warehouse B is expected to be completed before <strong>Oct 15, 2026</strong> — subcontractor progress needs close monitoring to avoid delaying the overall schedule.</p>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="todo-item is-done"><input type="checkbox" checked /><span>Work with the supplier to shorten the delivery time for electrical equipment</span></div>
+          <div class="todo-item"><input type="checkbox" /><span>Update the fire safety commissioning plan for Warehouse B</span></div>
+          <div class="todo-item"><input type="checkbox" /><span>Report schedule risk to the Project Management Board</span></div>
+        </div>
+
+        <hr class="divider-block" />
+
+        <details class="toggle-block" open>
+          <summary><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>Internal notes (hidden when published)</summary>
+          <div class="toggle-body">The construction team proposes adding a night shift for Warehouse B starting next week if the fire safety materials arrive on time. Awaiting overtime budget approval from the Project Management Board before confirming.</div>
+        </details>
+
+        <div class="block">
+          <table class="editor-table">
+            <thead><tr><th>Item</th><th>Owner</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Install packaging line</td><td>M&amp;E Team</td><td><span class="badge badge-success">Completed</span></td></tr>
+              <tr><td>Fire safety commissioning - Warehouse B</td><td>Fire Safety Team</td><td><span class="badge badge-warning">In Progress</span></td></tr>
+              <tr><td>New shift operational training</td><td>HR Dept.</td><td><span class="badge badge-success">Completed</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="block">
+          <div class="code-block">
+            <span class="code-lang">JSON — Progress tracking code</span>
+            <pre>{
+  "project_id": "BD-2026-004",
+  "milestone": "Q3-progress-report",
+  "progress_pct": 78,
+  "next_review": "2026-10-15"
+}</pre>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="img-block"><span class="text-tertiary text-sm">Image — Packaging line progress diagram</span></div>
+        </div>
+
+        <div class="slash-menu">
+          <div class="slash-menu__search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span>Type to filter blocks…</span></div>
+          <div class="slash-menu__label">Basic</div>
+          <div class="slash-menu__item is-selected"><span class="slash-menu__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="14" y2="18"/></svg></span><span class="slash-menu__text"><span class="slash-menu__title">Text</span><span class="slash-menu__desc">Plain text paragraph</span></span></div>
+          <div class="slash-menu__item"><span class="slash-menu__icon">H1</span><span class="slash-menu__text"><span class="slash-menu__title">Heading 1</span><span class="slash-menu__desc">Largest heading</span></span></div>
+          <div class="slash-menu__item"><span class="slash-menu__icon">H2</span><span class="slash-menu__text"><span class="slash-menu__title">Heading 2</span><span class="slash-menu__desc">Section heading</span></span></div>
+          <div class="slash-menu__item"><span class="slash-menu__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg></span><span class="slash-menu__text"><span class="slash-menu__title">To-do</span><span class="slash-menu__desc">Checkable checklist</span></span></div>
+          <div class="slash-menu__label">Media &amp; advanced</div>
+          <div class="slash-menu__item"><span class="slash-menu__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="4" x2="9" y2="20"/></svg></span><span class="slash-menu__text"><span class="slash-menu__title">Table</span><span class="slash-menu__desc">Grid-style data table</span></span></div>
+          <div class="slash-menu__item"><span class="slash-menu__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 3 12 8 18"/><polyline points="16 6 21 12 16 18"/></svg></span><span class="slash-menu__text"><span class="slash-menu__title">Code</span><span class="slash-menu__desc">Source code block</span></span></div>
+          <div class="slash-menu__item"><span class="slash-menu__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.4"/><path d="M21 16l-5.5-5.5-3 3-2-2L3 18"/></svg></span><span class="slash-menu__text"><span class="slash-menu__title">Image</span><span class="slash-menu__desc">Upload or paste a link</span></span></div>
+        </div>
+
+        <div class="add-block-row"><span class="add-plus">+</span> Add block</div>
+      </div>
+
+      <aside class="editor-rail">
+        <div>
+          <div class="text-tiny text-tertiary editor-rail__label">Currently viewing</div>
+          <div class="presence-stack">
+            <span class="avatar">KT</span><span class="avatar">LN</span><span class="avatar">HP</span>
+            <span class="avatar avatar-more">+2</span>
+          </div>
+        </div>
+        <div>
+          <div class="text-tiny text-tertiary editor-rail__label">Table of contents</div>
+          <nav class="toc">
+            <a class="toc-item is-active" href="#">Overview</a>
+            <a class="toc-item" href="#">Risks &amp; Issues</a>
+            <a class="toc-item" href="#">Tracking &amp; Appendix</a>
+          </nav>
+        </div>
+        <div>
+          <div class="text-tiny text-tertiary editor-rail__label">Page info</div>
+          <dl class="rail-meta">
+            <div><dt>Owner</dt><dd>Khoa Tran</dd></div>
+            <div><dt>Updated</dt><dd>6 minutes ago</dd></div>
+            <div><dt>Comments</dt><dd>3</dd></div>
+          </dl>
+        </div>
+      </aside>
+    </main>
+  </div>
+</div>
+</body>
+</html>

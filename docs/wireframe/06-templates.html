@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Templates — Project Document Hub</title>
+<link rel="stylesheet" href="wireframe.css">
+<style>
+  .tpl-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start; }
+  .tpl-cell { display: flex; align-items: center; gap: 10px; }
+  .tpl-cell .name { display: block; font-weight: 600; }
+  .tpl-cell .sub { display: block; font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+  .row-active td { background: #FAFBF8; }
+  .field-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--border); }
+  .field-row:last-of-type { border-bottom: none; }
+  .field-row .handle { color: var(--text-tertiary); cursor: grab; font-size: 13px; }
+  .field-row .label { flex: 1; font-weight: 600; font-size: 13px; }
+  .field-row .required { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); background: var(--warning-bg); color: var(--warning); }
+  .field-row .optional { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-pill); background: var(--neutral-bg); color: var(--neutral); }
+  .add-field-row { display: flex; align-items: center; gap: 8px; padding: 12px 4px; color: var(--text-tertiary); font-weight: 600; font-size: 13px; cursor: pointer; }
+  .add-field-row:hover { color: var(--text-secondary); }
+  .panel-pad { padding: 16px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar__top">
+      <div class="sidebar__logo">Doc<span class="logo-accent">Hub</span></div>
+      <button class="sidebar__collapse" type="button" aria-label="Collapse sidebar" title="Collapse sidebar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg></button>
+    </div>
+    <div class="sidebar__section-label text-tiny">MENU</div>
+    <nav class="sidebar__nav">
+      <a class="nav-item" href="01-dashboard.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg></span><span>Overview</span></a>
+      <a class="nav-item" href="02-workspace.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span><span>Projects</span></a>
+      <a class="nav-item is-active" href="06-templates.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/><rect x="13" y="14" width="8" height="7" rx="1.5"/></svg></span><span>Templates</span></a>
+      <a class="nav-item" href="05-permissions.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 21v-1.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/><path d="M16.5 3.8a3.5 3.5 0 0 1 0 6.8"/><path d="M21.5 21v-1.5a5 5 0 0 0-3.3-4.7"/></svg></span><span>Share</span><span class="nav-badge">14</span></a>
+      <a class="nav-item" href="07-public-site.html"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3c2.8 2.6 4.5 6 4.5 9s-1.7 6.4-4.5 9"/><path d="M12 3c-2.8 2.6-4.5 6-4.5 9s1.7 6.4 4.5 9"/></svg></span><span>Public Site</span></a>
+    </nav>
+    <div class="sidebar__footer">
+      <a class="nav-item" href="#"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="21" x2="5" y2="13"/><line x1="5" y1="9" x2="5" y2="3"/><circle cx="5" cy="11" r="2"/><line x1="12" y1="21" x2="12" y2="11"/><line x1="12" y1="7" x2="12" y2="3"/><circle cx="12" cy="9" r="2"/><line x1="19" y1="21" x2="19" y2="15"/><line x1="19" y1="11" x2="19" y2="3"/><circle cx="19" cy="13" r="2"/></svg></span><span>Settings</span></a>
+    </div>
+  </aside>
+  <div class="app-main">
+    <header class="topbar">
+      <div class="topbar__title">
+        <h1>Templates</h1>
+        <p>Templates are JSON Schema based; each save creates an immutable version. Documents stay pinned to a specific version.</p>
+      </div>
+      <div class="topbar__actions">
+        <button class="btn btn-primary">+ New Template</button>
+        <button class="icon-btn-circle" type="button" aria-label="Toggle light/dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg></button>
+        <button class="icon-btn-circle" type="button" aria-label="Share page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.6" x2="15.4" y2="6.4"/><line x1="8.6" y1="13.4" x2="15.4" y2="17.6"/></svg></button>
+        <button class="user-chip" type="button">
+          <span class="avatar">KT</span>
+          <span class="user-chip__meta"><span class="user-chip__name">Khoa Tran</span><span class="user-chip__email">khoa.tran@dochub.vn</span></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+    </header>
+    <main class="content">
+      <div class="tpl-layout">
+        <div class="card">
+          <table>
+            <thead>
+              <tr><th>Template</th><th>Version</th><th>Fields</th><th>Docs using it</th><th>Updated</th></tr>
+            </thead>
+            <tbody>
+              <tr class="row-active">
+                <td><div class="tpl-cell"><div><span class="name">Equipment Registration</span><span class="sub">Equipment registration</span></div></div></td>
+                <td><span class="badge badge-info">v3</span></td>
+                <td class="num">7</td>
+                <td class="num">142</td>
+                <td class="text-secondary">Sep 22, 2026</td>
+              </tr>
+              <tr>
+                <td><div class="tpl-cell"><div><span class="name">Acceptance Report</span><span class="sub">Acceptance report</span></div></div></td>
+                <td><span class="badge badge-info">v5</span></td>
+                <td class="num">11</td>
+                <td class="num">98</td>
+                <td class="text-secondary">Sep 26, 2026</td>
+              </tr>
+              <tr>
+                <td><div class="tpl-cell"><div><span class="name">Purchase Request</span><span class="sub">Purchase request</span></div></div></td>
+                <td><span class="badge badge-info">v2</span></td>
+                <td class="num">9</td>
+                <td class="num">61</td>
+                <td class="text-secondary">Sep 14, 2026</td>
+              </tr>
+              <tr>
+                <td><div class="tpl-cell"><div><span class="name">Training Enrollment</span><span class="sub">Training enrollment</span></div></div></td>
+                <td><span class="badge badge-info">v1</span></td>
+                <td class="num">5</td>
+                <td class="num">37</td>
+                <td class="text-secondary">Sep 10, 2026</td>
+              </tr>
+              <tr>
+                <td><div class="tpl-cell"><div><span class="name">Incident Report</span><span class="sub">Incident report</span></div></div></td>
+                <td><span class="badge badge-info">v4</span></td>
+                <td class="num">8</td>
+                <td class="num">23</td>
+                <td class="text-secondary">Aug 30, 2026</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel panel-pad">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+            <h3>Schema field builder</h3>
+            <span class="badge badge-info">v3</span>
+          </div>
+          <p class="text-sm text-secondary" style="margin:0 0 12px;">Equipment Registration — editing draft creates v4 on save; existing docs stay pinned to v3.</p>
+
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Equipment name</span>
+            <span class="badge badge-neutral">text</span>
+            <span class="required">required</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Equipment type</span>
+            <span class="badge badge-neutral">select</span>
+            <span class="required">required</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Serial number</span>
+            <span class="badge badge-neutral">text</span>
+            <span class="optional">optional</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Purchase date</span>
+            <span class="badge badge-neutral">date</span>
+            <span class="required">required</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Value (VND)</span>
+            <span class="badge badge-neutral">number</span>
+            <span class="optional">optional</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Person in charge</span>
+            <span class="badge badge-neutral">select</span>
+            <span class="required">required</span>
+          </div>
+          <div class="field-row">
+            <span class="handle">⋮⋮</span>
+            <span class="label">Equipment image</span>
+            <span class="badge badge-neutral">file</span>
+            <span class="optional">optional</span>
+          </div>
+          <div class="add-field-row">+ Add field</div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 ## Context Links
 
-- [plan.md](./plan.md) · [phase 00](./phase-00-spike-and-risk-verification.md)
+- [plan.md](./plan.md)
 - [research 01](./research/researcher-01-outline-selfhost-and-api.md) mục 1
 - [research 02](./research/researcher-02-oidc-provider-and-claude-api.md) Topic 4
 - Quy tắc: `.claude/rules/development-rules.md`
@@ -18,10 +18,11 @@
 
 ## Key Insights
 
-- pnpm workspaces là đủ cho 3 app + 4 package. Không Turborepo (YAGNI).
+- pnpm workspaces là đủ cho 2 app + 4 package (MVP 2 thêm 1 app). Không Turborepo (YAGNI).
 - 1 instance Postgres, 2 database: `outline` (của Outline, không đụng) và `hd_document_apps` (schema `bridge`, `companion`). Không dùng chung Redis của Outline cho app tự viết.
-- Outline pin theo tag chốt ở S1, kèm digest image.
-- Tên biến S3 của Outline lấy từ kết quả S13, không đoán.
+- Outline pin tag stable mới nhất có PR #13879 (tra release notes lúc dựng), kèm digest image. Không có release nào chứa → dùng stable mới nhất + quy định "không move doc đang có share riêng". Không build từ `main`.
+- Tên biến S3 của Outline lấy từ `.env.sample` của đúng tag đang pin, không đoán. MinIO không chạy được → lưu file local (volume), backup bằng copy volume.
+- Không có phase spike: các điểm trên là giả định. Tag + compose kiểm ở bước 9; upload file chỉ kiểm được khi đã login (phase 2, bước 12).
 
 ## Requirements
 
@@ -46,14 +47,14 @@ infra/                 docker-compose.yml, .env.example, postgres-init/, backup/
 
 - Migration: `node-pg-migrate` + file SQL thuần. Không ORM (vài bảng, YAGNI).
 - Backup chạy trong container (service `backup` gọi bằng `docker compose run`) → không phụ thuộc shell của host.
-- TLS/reverse proxy: chỉ thêm vào compose nếu S8 kết luận cần HTTPS ở local; production chờ câu hỏi deploy.
+- TLS/reverse proxy: giả định local chạy HTTP được. Phase 2 phát hiện Outline đòi HTTPS cho issuer/callback → thêm reverse proxy TLS (cert tự ký) vào compose; production chờ câu hỏi deploy.
 
 ## Related Code Files
 
 Tạo:
 - `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `.nvmrc`, `.editorconfig`
 - `eslint.config.mjs`, `vitest.workspace.ts`
-- `.gitignore` (sửa: thêm `.env*`, `spike/`, `infra/backup-output/`)
+- `.gitignore` (sửa: thêm `.env*`, `infra/backup-output/`)
 - `packages/app-database/package.json`
 - `packages/app-database/src/create-postgres-pool.ts`
 - `packages/app-database/src/run-migrations-cli.ts`
@@ -71,7 +72,7 @@ Sửa / xóa: không.
 
 ## Implementation Steps
 
-1. Khởi tạo root: `package.json` (private, scripts `typecheck|lint|test` gọi `pnpm -r`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `.nvmrc` theo S7.
+1. Khởi tạo root: `package.json` (private, scripts `typecheck|lint|test` gọi `pnpm -r`), `pnpm-workspace.yaml` (`apps/*`, `packages/*`), `.nvmrc` theo `engines` trong `package.json` của `oidc-provider` 9.x.
 2. `tsconfig.base.json` strict; mỗi package extends. ESLint flat config + Prettier mặc định. Vitest workspace.
 3. `infra/docker-compose.yml`: service `postgres`, `redis`, `minio`, `minio-init` (tạo bucket), `outline` (image pin tag + digest). Healthcheck cho postgres/redis/minio; `outline` depends_on healthy. Volume đặt tên rõ.
 4. `infra/postgres-init/01-create-databases.sql`: tạo database `outline`, `hd_document_apps` + role riêng cho từng database.
@@ -103,7 +104,7 @@ Sửa / xóa: không.
 ## Risk Assessment
 
 - Docker Desktop Windows: volume chậm, line ending CRLF làm hỏng script `.sh` → `.gitattributes` ép LF cho `infra/**/*.sh`.
-- Sai tên biến S3 → Outline không upload được: dựa vào S13.
+- Sai tên biến S3 → Outline không upload được: đối chiếu `.env.sample` của Outline; upload thử PDF ở phase 2 (bước 12) khi đã login được.
 - Tag Outline không có digest cố định → ghi digest vào compose.
 
 ## Security Considerations

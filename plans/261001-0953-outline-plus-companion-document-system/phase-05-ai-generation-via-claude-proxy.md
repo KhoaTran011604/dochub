@@ -1,8 +1,8 @@
-# Phase 05: AI gen qua Claude proxy
+# Phase 05 (MVP 2): AI gen qua Claude proxy
 
 ## Context Links
 
-- [plan.md](./plan.md) · [phase 00](./phase-00-spike-and-risk-verification.md) (S12) · [phase 04](./phase-04-companion-auth-template-form-third-party-endpoint.md)
+- [plan.md](./plan.md) · [phase 04](./phase-04-companion-auth-template-form-third-party-endpoint.md)
 - [research 02](./research/researcher-02-oidc-provider-and-claude-api.md) Topic 3
 - Khi code: kích hoạt skill `claude-api`, đọc `typescript/claude-api/README.md` + `streaming.md` + `shared/prompt-caching.md` (không viết SDK theo trí nhớ)
 
@@ -11,14 +11,14 @@
 - Ngày: 2026-10-01
 - Mô tả: template + dữ liệu form + doc ngữ cảnh (tùy chọn) → Claude qua proxy của user, xem trước dạng stream → user duyệt → tạo doc.
 - Priority: P2
-- Implementation status: Pending
+- Implementation status: Deferred (MVP 2, ngoài ngân sách 30 ngày của MVP 1)
 - Review status: Chưa review
 - Effort: 40h (5 ngày)
 
 ## Key Insights
 
 - Không gọi `api.anthropic.com` trực tiếp. Base URL, API key, model id là env (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`, `AI_MODEL_ID`, mặc định `claude-opus-5-5`). Mọi call đi qua 1 module.
-- <!-- Updated: Validation Session 1 - user xác nhận proxy theo Anthropic Messages API --> Đã xác nhận (user): proxy theo Anthropic Messages API → dùng `@anthropic-ai/sdk` với `baseURL`. Streaming + prompt caching qua proxy: theo kết quả S12.
+- <!-- Updated: Validation Session 1 - user xác nhận proxy theo Anthropic Messages API --> Đã xác nhận (user): proxy theo Anthropic Messages API → dùng `@anthropic-ai/sdk` với `baseURL`. Streaming + prompt caching qua proxy: chưa kiểm, kiểm ở bước 1.
 - Ràng buộc của `claude-opus-5-5` (theo skill `claude-api`): không tắt được thinking; không gửi `temperature/top_p/top_k`; không prefill assistant; `effort` mặc định `medium` → đặt tường minh qua env; thinking mặc định không hiển thị nên có khoảng lặng trước khi ra chữ.
 - Phải kiểm `stop_reason` trước khi coi kết quả là hoàn chỉnh (`refusal`, `max_tokens`).
 - Prompt caching là so khớp tiền tố: phần ổn định (system + template) đặt trước, phần đổi (ngữ cảnh, input) đặt sau. Tiền tố ngắn hơn ngưỡng tối thiểu của model sẽ không cache.
@@ -56,7 +56,7 @@ Bố cục prompt (để cache được):
 3. user block 2: doc ngữ cảnh, bọc trong thẻ tài liệu.
 4. user block 3: giá trị form + ghi chú (đổi mỗi lần, đặt cuối).
 
-Tham số gọi: model từ env; `thinking: {type: "adaptive"}`; `output_config.effort` từ env (khởi điểm `medium`, chỉnh sau khi đo); stream; `max_tokens` lớn (stream nên không lo timeout), cấu hình được. Tham số nào proxy từ chối (S12) thì bỏ trong đúng module client.
+Tham số gọi: model từ env; `thinking: {type: "adaptive"}`; `output_config.effort` từ env (khởi điểm `medium`, chỉnh sau khi đo); stream; `max_tokens` lớn (stream nên không lo timeout), cấu hình được. Tham số nào proxy từ chối thì bỏ trong đúng module client.
 
 ## Related Code Files
 
@@ -73,13 +73,13 @@ Tạo `apps/companion/`:
 - `components/context-document-picker.tsx`
 - `queries/ai/mutations.ts`
 
-Tạo: `packages/app-database/migrations/0005-create-ai-usage-table.sql`.
+Tạo: migration kế tiếp trong `packages/app-database/migrations/` cho bảng AI usage.
 
 Sửa: `apps/companion/queries/query-keys.ts`, `apps/companion/lib/config/environment-config.ts`, `infra/.env.example`.
 
 ## Implementation Steps
 
-1. Đọc tài liệu SDK (skill `claude-api`) + báo cáo S12; chốt bộ tham số proxy chấp nhận.
+1. Đọc tài liệu SDK (skill `claude-api`); gọi thử proxy bằng doc giả (non-stream, stream, `cache_control`, `thinking`, `output_config.effort`, `stop_reason: "refusal"`) → chốt bộ tham số proxy chấp nhận.
 2. `claude-proxy-client.ts`: khởi tạo client từ env; 1 hàm stream nhận prompt + `AbortSignal`, trả async iterator text + message cuối (usage, `stop_reason`). Dùng helper stream của SDK, kiểu của SDK, chuỗi bắt lỗi theo class lỗi của SDK (rate limit / status / connection).
 3. `build-document-generation-prompt.ts` theo bố cục cache; unit test: cùng template → tiền tố byte giống hệt.
 4. `context-document-loader.ts`: lấy doc bằng client của user; giới hạn số doc + tổng kích thước; vượt → lỗi có hướng dẫn.
@@ -92,7 +92,7 @@ Sửa: `apps/companion/queries/query-keys.ts`, `apps/companion/lib/config/enviro
 
 ## Todo List
 
-- [ ] Chốt tham số theo S12 + tài liệu SDK
+- [ ] Gọi thử proxy + chốt tham số theo tài liệu SDK
 - [ ] `claude-proxy-client.ts`
 - [ ] Dựng prompt + test tính ổn định tiền tố
 - [ ] Nạp doc ngữ cảnh bằng token user + giới hạn
@@ -113,7 +113,7 @@ Sửa: `apps/companion/queries/query-keys.ts`, `apps/companion/lib/config/enviro
 
 ## Risk Assessment
 
-- Proxy không tương thích hoàn toàn (S12) → mọi khác biệt xử lý trong module client; không stream được → hiển thị kết quả 1 lần + spinner.
+- Proxy không tương thích hoàn toàn → mọi khác biệt xử lý trong module client; không stream được → hiển thị kết quả 1 lần + spinner.
 - Chi phí: doc ngữ cảnh dài + model Opus. Giảm thiểu: hạn mức, giới hạn ngữ cảnh, đo usage; đổi model là quyết định của user qua env.
 - Chất lượng bản nháp: cần vài vòng chỉnh prompt với template thật; đã tính trong 5 ngày, có thể lố.
 - Prompt injection từ doc ngữ cảnh: không có tool, đầu ra chỉ là bản nháp có người duyệt → tác động thấp.

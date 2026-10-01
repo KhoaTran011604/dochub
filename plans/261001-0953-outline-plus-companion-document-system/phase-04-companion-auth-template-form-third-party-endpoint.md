@@ -2,7 +2,7 @@
 
 ## Context Links
 
-- [plan.md](./plan.md) · [phase 00](./phase-00-spike-and-risk-verification.md) (S4, S5, S9) · [phase 03](./phase-03-project-conventions-and-permission-sync-job.md)
+- [plan.md](./plan.md) · [phase 03](./phase-03-project-conventions-and-permission-sync-job.md)
 - [brainstorm](../reports/brainstorm-261001-0953-outline-plus-companion-document-system.md) mục 4.2, 5
 - Quy tắc frontend: `.claude/rules/development-rules.md` (giữ tinh thần; các file `apps/web/...`, GenericForm, GenericTable nêu trong đó KHÔNG tồn tại ở repo này)
 
@@ -13,7 +13,7 @@
 - Priority: P1
 - Implementation status: Pending
 - Review status: Chưa review
-- Effort: 104h (13 ngày; +2-6 ngày nếu S5 phải fallback)
+- Effort: 104h (13 ngày; +2-6 ngày nếu OAuth app Outline phải fallback → khi đó dời endpoint bên thứ 3 sang MVP 2 để giữ lịch)
 - <!-- Updated: Validation Session 1 - endpoint bên thứ 3 tạo doc dưới tên user ERP thật (+3 ngày) -->
 
 ### Thay đổi sau validation: tác giả doc từ endpoint bên thứ 3 = user ERP thật
@@ -23,9 +23,9 @@ Endpoint bên thứ 3 KHÔNG tạo doc bằng admin token nữa. ERP truyền `a
 - **Có grant** (user đã từng login companion, refresh token còn hạn): tạo ngay bằng token user → `201 { documentId, url }`. Quyền do Outline ép: user không có quyền ghi → `403`.
 - **Chưa có grant / grant hết hạn**: lưu yêu cầu vào `companion.pending_document_requests` → `202 { pendingUrl }`. User mở `pendingUrl` → login companion → companion tạo doc bằng token user → redirect sang Outline. Yêu cầu chờ hết hạn sau 7 ngày (cấu hình được), chỉ đúng user được chỉ định mới hoàn tất được.
 - Grant lưu riêng khỏi session: bảng `companion.user_outline_grants` (refresh token niêm phong, theo user), không bị xóa khi logout session trình duyệt; bị xóa khi user thu hồi hoặc bị suspend.
-- Nếu S5 cho thấy refresh token không dùng offline được → chỉ còn nhánh `202 pendingUrl`.
+- Nếu refresh token của Outline không dùng offline được (user không online) → chỉ còn nhánh `202 pendingUrl`.
 
-Phần này thay thế mọi chỗ bên dưới nói endpoint ngoài dùng admin token. Admin token chỉ còn dùng ở phase 3 (sync) và phase 6 (init dự án).
+Phần này thay thế mọi chỗ bên dưới nói endpoint ngoài dùng admin token. Admin token chỉ còn dùng ở CLI đăng ký dự án (phase 3) và job sync (phase 9, MVP 2).
 
 Việc thêm: migration 0004 thêm 2 bảng trên; `lib/external/user-outline-grant-repository.ts`; `lib/external/pending-document-request-repository.ts`; `app/(app)/pending/[id]/page.tsx`; hợp đồng thêm `actingUserEmail` (bắt buộc) và response `202`; test: tác giả hiển thị đúng user, user khác mở `pendingUrl` → 403, yêu cầu hết hạn → 410.
 
@@ -34,10 +34,17 @@ Rủi ro/bảo mật thêm: service key của ERP giờ có thể tạo doc dư�
 ## Key Insights
 
 - "Đăng nhập bằng Outline" cho cả định danh lẫn token thay mặt user trong 1 luồng → companion không cần là OIDC client của bridge. Admin companion = role admin trong Outline (`auth.info`).
-- Mọi thao tác của user dùng token của user → Outline tự ép quyền. Endpoint bên thứ 3 cũng dùng token của user được chỉ định (`actingUserEmail`, qua grant). Admin token không dùng ở phase này (chỉ phase 3 và 6).
+- Mọi thao tác của user dùng token của user → Outline tự ép quyền. Endpoint bên thứ 3 cũng dùng token của user được chỉ định (`actingUserEmail`, qua grant). Admin token không dùng ở phase này.
 - Không có editor trong companion. Template soạn trong Outline, sửa doc sau khi tạo cũng trong Outline.
 - Token Outline không bao giờ xuống trình duyệt (BFF: route handler gọi Outline).
-- Cú pháp placeholder cuối cùng theo S9.
+- Cú pháp placeholder `{{ten:kieu}}` là giả định: chưa kiểm Outline có escape `_ { } | ( )` khi lưu markdown không → kiểm bằng 1 template thật ngay khi viết parser (bước 6).
+
+## Giả định (chưa kiểm chứng, không có phase spike)
+
+- Outline self-host có OAuth app: authorization code, token user gọi được `auth.info` + `documents.*`, quyền do Outline ép. Sai → fallback A hoặc B (mục Risk).
+- Có refresh token dùng offline được. Sai → endpoint bên thứ 3 chỉ trả `202 pendingUrl`.
+- `documents.create` trả `url` mở được trong trình duyệt. Không có → ghép từ `urlId` hoặc gọi thêm `documents.info`.
+- Placeholder đi qua markdown của Outline nguyên vẹn. Sai → parser bỏ escape `\` trước khi dò; vẫn hỏng → tên biến camelCase hoặc đặt placeholder trong inline code.
 
 ## Requirements
 
@@ -52,7 +59,7 @@ Chức năng:
 Phi chức năng:
 - Query key tập trung 1 file; mỗi domain 1 thư mục `queries.ts` + `mutations.ts`; hook dùng generic.
 - Hook mutation chỉ invalidate cache; toast/redirect truyền qua callback từ component gọi.
-- 1 component form động dùng chung (phase 5, 6 dùng lại), không dựng form riêng lẻ.
+- 1 component form động dùng chung (phase 5 dùng lại), không dựng form riêng lẻ.
 - try/catch ở mọi route handler; lỗi trả về không lộ chi tiết nội bộ.
 - File < 200 dòng.
 
@@ -92,7 +99,7 @@ Tạo `apps/companion/`:
 - `lib/templates/placeholder-field-types.ts`
 - `lib/templates/build-form-schema-from-placeholders.ts`
 - `lib/templates/merge-template-with-values.ts`
-- `lib/documents/create-document-from-template-service.ts` (dùng chung cho UI, endpoint ngoài, phase 5, 6)
+- `lib/documents/create-document-from-template-service.ts` (dùng chung cho UI, endpoint ngoài, phase 5)
 - `app/api/templates/route.ts`, `app/api/templates/[id]/route.ts`
 - `app/api/collections/route.ts`, `app/api/collections/[id]/document-tree/route.ts`
 - `app/api/documents/route.ts`
@@ -115,12 +122,12 @@ Sửa: `infra/docker-compose.yml`, `infra/.env.example`.
 
 ## Implementation Steps
 
-1. Đăng ký OAuth app trong Outline (theo S5), ghi bước vào `infra/README.md`.
+1. Đăng ký OAuth app trong Outline, ghi bước vào `infra/README.md`. Làm bước 2 + 4 ngay sau đó để biết sớm OAuth có chạy trên self-host không; quá 2 ngày chưa lấy được token user → báo user, chọn fallback.
 2. Bổ sung `outline-api-client`: documents (info, list, create), `auth.info`, đổi/refresh token.
 3. Migration 0004: `user_sessions`, `user_outline_grants`, `pending_document_requests`, `external_idempotency_keys`, `companion_audit_log`.
 4. Luồng OAuth: state + PKCE, callback đổi code, gọi `auth.info`, tạo session. Logout xóa session.
 5. `require-user-session` + `get-outline-client-for-user` (refresh có khóa).
-6. Parser placeholder (bỏ escape theo S9) + unit test dày: lồng nhau, trùng tên, kiểu lạ, option select có khoảng trắng, tiếng Việt có dấu.
+6. Parser placeholder (lấy markdown của 1 template thật qua `documents.info` làm mẫu test, xử lý escape nếu có) + unit test dày: lồng nhau, trùng tên, kiểu lạ, option select có khoảng trắng, tiếng Việt có dấu.
 7. Sinh zod schema + merge; test.
 8. Route handlers template/collection/document, tất cả dùng token user.
 9. UI: danh sách template → trang tạo (form động + chọn đích) → thành công hiện link "Mở trong Outline".
@@ -155,9 +162,11 @@ Sửa: `infra/docker-compose.yml`, `infra/.env.example`.
 
 ## Risk Assessment
 
-- S5 fallback A (API key theo user): thêm màn nhập key, lưu niêm phong; +2-4 ngày.
-- S5 fallback B (admin token + tự kiểm quyền): dễ sai nhất, phải có test phân quyền cho từng route; +4-6 ngày; cần thêm client `companion` ở bridge.
-- Outline đổi markdown khi lưu → doc tạo ra lệch format: kiểm mẫu thật ở S9, thêm test hợp đồng phase 7.
+- OAuth app Outline không dùng được trên self-host (rủi ro lớn nhất của MVP 1, chưa kiểm chứng):
+  - Fallback A (API key theo user: user tự tạo trong Outline, dán vào companion, lưu niêm phong): UX kém nhưng quyền vẫn do Outline ép; +2-4 ngày.
+  - Fallback B (companion login qua bridge + admin token + tự kiểm quyền): dễ sai nhất, phải có test phân quyền cho từng route; +4-6 ngày; cần thêm client `companion` ở bridge. Chỉ dùng khi A không được.
+  - Cả 2 đều vượt ngân sách 30 ngày → dời endpoint bên thứ 3 sang MVP 2.
+- Outline đổi markdown khi lưu → doc tạo ra lệch format: kiểm bằng template thật ở bước 6.
 - Template có placeholder sai cú pháp → hiện cảnh báo cho người soạn, không đoán.
 
 ## Security Considerations
@@ -166,11 +175,11 @@ Sửa: `infra/docker-compose.yml`, `infra/.env.example`.
 - CSRF: route ghi chỉ nhận JSON + kiểm Origin.
 - Service key entropy cao, lưu dạng băm, xoay vòng được; giới hạn theo `projectKey`.
 - Validate mọi input bằng zod; giới hạn kích thước body.
-- Admin token không được import ở bất kỳ route nào của phase này (chỉ phase 3 và 6 dùng); thêm lint rule/kiểm review để không dùng ở route của user.
+- Admin token không được import ở bất kỳ route nào của companion (chỉ CLI phase 3 dùng); thêm lint rule/kiểm review.
 - Audit: ai tạo doc gì, ở đâu, qua kênh nào.
 
 ## Next Steps
 
-- Phase 5 dùng lại form động + `create-document-from-template-service`.
-- Phase 6 dùng lại merge + service tạo doc.
+- Phase 7: E2E không lộ doc ngoài quyền + template → doc.
+- Phase 5 (MVP 2) dùng lại form động + `create-document-from-template-service`.
 - Ghim link companion trong Outline (doc hướng dẫn trong collection `Templates`).

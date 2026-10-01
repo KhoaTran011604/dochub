@@ -2,7 +2,7 @@
 
 ## Context Links
 
-- [plan.md](./plan.md) · [phase 00](./phase-00-spike-and-risk-verification.md) (S2, S7, S8) · [phase 01](./phase-01-monorepo-and-outline-infra.md)
+- [plan.md](./plan.md) · [phase 01](./phase-01-monorepo-and-outline-infra.md)
 - [research 02](./research/researcher-02-oidc-provider-and-claude-api.md) Topic 1, 2
 - [research 01](./research/researcher-01-outline-selfhost-and-api.md) mục 1 (env OIDC của Outline)
 
@@ -22,7 +22,14 @@
 - `system_admin` phải chạy được từ ngày đầu và khi ERP down → nhánh xác thực local không được gọi ERP ở bất kỳ bước nào.
 - `findAccount` được gọi lại sau login (token, userinfo) chỉ với `sub` → phải lưu profile (bảng `bridge.accounts`).
 - Bridge là điểm chết duy nhất cho đăng nhập: giữ nhỏ, ít phụ thuộc (chỉ Postgres).
-- Chi tiết interaction/consent/adapter lấy theo kết quả S7, không theo trí nhớ.
+- Chi tiết interaction/consent/adapter lấy theo tài liệu + ví dụ trong repo `oidc-provider` (dùng skill `docs-seeker`), không theo trí nhớ.
+
+## Giả định (chưa kiểm chứng, không có phase spike)
+
+- `oidc-provider` 9.x: tự viết được interaction login, bỏ consent cho client first-party, adapter Postgres 1 bảng payload JSONB. Consent không bỏ được → tự hoàn tất consent trong interaction handler. Thư viện không dùng được → dừng, báo user (đổi phạm vi phase).
+- Outline đọc `OIDC_ISSUER_URL` discovery được với bridge. Lỗi → khai tay `OIDC_AUTH_URI/TOKEN_URI/USERINFO_URI`.
+- Outline chấp nhận issuer/callback HTTP ở local. Không → reverse proxy TLS tự ký (xem phase 1).
+- User đầu tiên login vào Outline mới cài thành admin → `system_admin` login đầu tiên. Không → promote bằng `users.update_role`, cuối cùng mới sửa role trong Postgres (ghi runbook).
 
 ## Requirements
 
@@ -58,14 +65,9 @@ type ErpAuthResult =
   | { ok: true; profile: ErpUserProfile }
   | { ok: false; reason: 'invalid_credentials' | 'inactive' | 'unavailable' };
 interface ErpAuthAdapter { authenticate(username: string, password: string): Promise<ErpAuthResult>; }
-
-type ProjectRole = 'viewer' | 'editor' | 'manager';
-interface ErpRoleSource {
-  listProjects(): Promise<{ projectKey: string; name: string }[]>;
-  listProjectMembers(projectKey: string): Promise<{ email: string; role: ProjectRole }[]>;
-  listUsers(): Promise<{ email: string; active: boolean }[]>;
-}
 ```
+
+`ErpRoleSource` (role dự án) không làm ở đây: thuộc phase 9 (MVP 2).
 
 - `sub`: `local:system_admin` hoặc `erp:<erpUserId>` (ổn định, không dùng email).
 - Bảng (schema `bridge`): `oidc_payloads` (adapter), `accounts`, `login_attempts`, `auth_audit_log`.
@@ -75,11 +77,11 @@ interface ErpRoleSource {
 ## Related Code Files
 
 Tạo `packages/erp-adapters/`:
-- `src/erp-auth-adapter.ts`, `src/erp-role-source.ts` (interface + type)
-- `src/stub-erp-auth-adapter.ts`, `src/stub-erp-role-source.ts`
+- `src/erp-auth-adapter.ts` (interface + type)
+- `src/stub-erp-auth-adapter.ts`
 - `src/disabled-erp-auth-adapter.ts`
 - `src/create-erp-adapters-from-env.ts`
-- `dev-fixtures/stub-erp-users-and-projects.example.json`
+- `dev-fixtures/stub-erp-users.example.json`
 
 Tạo `apps/oidc-bridge/`:
 - `src/server.ts`
@@ -109,14 +111,14 @@ Sửa: `infra/docker-compose.yml` (thêm service `oidc-bridge`), `infra/.env.exa
 2. Migration 0002: 4 bảng schema `bridge`; index theo `expires_at`, `(username, ip)`.
 3. `environment-config.ts`: issuer URL, cookie keys, JWKS, client outline (id, secret, redirect), `SYSTEM_ADMIN_USERNAME/EMAIL/PASSWORD_HASH`, `ERP_AUTH_ADAPTER`, timeout ERP.
 4. Script sinh hash argon2id (nhập password qua stdin, không qua tham số dòng lệnh) và script sinh JWKS.
-5. Storage adapter Postgres theo interface của `oidc-provider` (mẫu từ S7) + job dọn bản ghi hết hạn.
-6. Cấu hình provider: client từ env, claim theo scope, bỏ consent cho client first-party (cách làm theo S7), TTL token/session, cookie keys.
+5. Storage adapter Postgres theo interface của `oidc-provider` (mẫu từ ví dụ adapter trong repo thư viện) + job dọn bản ghi hết hạn.
+6. Cấu hình provider: client từ env, claim theo scope, bỏ consent cho client first-party (theo tài liệu thư viện), TTL token/session, cookie keys.
 7. `authenticate-user-service.ts`: rẽ nhánh local/ERP, bọc try/catch, luôn trả cùng một thông báo lỗi cho sai username và sai password.
 8. Rate limit + lockout bằng bảng `login_attempts`; kiểm trước khi verify.
 9. Interaction routes: GET form (CSRF token), POST login → `interactionFinished`. View HTML tối giản, không framework.
 10. Audit log: thời điểm, username, kết quả, lý do, IP, user agent. Không ghi password.
-11. Dockerfile + service compose; điền `OIDC_*` cho Outline (discovery hoặc khai tay theo S8).
-12. Thiết lập admin Outline theo kết luận S2 (ghi vào `infra/README.md`).
+11. Dockerfile + service compose; điền `OIDC_*` cho Outline (discovery; lỗi thì khai tay).
+12. Thiết lập admin Outline: `system_admin` login đầu tiên ngay sau cài; kiểm role, không phải admin thì theo fallback ở mục Giả định (ghi vào `infra/README.md`). Upload thử 1 file PDF để xác nhận cấu hình MinIO của phase 1.
 13. Unit test: rẽ nhánh xác thực, lockout, factory adapter. Test tích hợp: login trọn luồng với Outline trong compose.
 
 ## Todo List
@@ -132,7 +134,7 @@ Sửa: `infra/docker-compose.yml` (thêm service `oidc-bridge`), `infra/.env.exa
 - [ ] Trang login + CSRF
 - [ ] Audit log
 - [ ] Docker + compose + env Outline
-- [ ] `system_admin` thành admin Outline (theo S2)
+- [ ] `system_admin` thành admin Outline + upload thử file
 - [ ] Unit + integration test
 
 ## Success Criteria
@@ -146,8 +148,8 @@ Sửa: `infra/docker-compose.yml` (thêm service `oidc-bridge`), `infra/.env.exa
 ## Risk Assessment
 
 - Bridge chết → không ai login. Giảm thiểu: healthcheck + restart policy; API key admin Outline cất offline làm break-glass (thao tác qua API); ghi runbook phase 7.
-- Hiểu sai API `oidc-provider` → dựa PoC S7, giữ cấu hình trong 1 file.
-- Đổi email phía ERP → user trùng trong Outline: xử lý theo S8, ghi vào runbook.
+- Hiểu sai API `oidc-provider` (không có PoC trước) → làm bước 5-6 + login trọn luồng với Outline trước, rồi mới làm lockout/audit; giữ cấu hình trong 1 file. Quá 2 ngày chưa login được → báo user.
+- Đổi email phía ERP → có thể tạo user trùng trong Outline: chưa rõ hành vi, ghi vào runbook, xử lý ở phase 8.
 - Lộ `SYSTEM_ADMIN_PASSWORD_HASH`: argon2id chậm brute-force nhưng vẫn phải coi là secret.
 
 ## Security Considerations
@@ -161,6 +163,5 @@ Sửa: `infra/docker-compose.yml` (thêm service `oidc-bridge`), `infra/.env.exa
 
 ## Next Steps
 
-- Phase 3 dùng `ErpRoleSource` stub.
-- Phase 4: nếu fallback B (S5) → thêm client `companion` vào `oidc-client-registry.ts`.
-- Phase 8: adapter `http` thật.
+- Phase 4: nếu phải fallback B (OAuth app Outline không dùng được) → thêm client `companion` vào `oidc-client-registry.ts`.
+- MVP 2: phase 9 thêm `ErpRoleSource` + stub; phase 8 adapter `http` thật.

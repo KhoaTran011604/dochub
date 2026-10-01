@@ -51,7 +51,7 @@ Tạo:
 - `tests/e2e/parent-share-exposes-only-branch.spec.ts`
 - `tests/e2e/template-to-document-flow.spec.ts`
 - `infra/backup/restore-postgres-databases.sh`
-- `infra/backup/restore-minio-bucket.sh`
+- `infra/backup/restore-outline-file-storage.sh`
 - `infra/backup/scheduled-backup-entrypoint.sh`
 - `infra/docker-compose.production.yml` (override: không publish port nội bộ, restart policy)
 - `docs/deployment-guide.md`
@@ -69,10 +69,10 @@ Sửa: `.github/workflows/ci-lint-typecheck-test.yml` (job E2E theo yêu cầu),
 3. Rà soát bảo mật nhanh:
    - Cookie flags, CSRF ở bridge + companion; rate limit login bridge + endpoint ngoài.
    - Secret: không có trong git/log/image.
-   - Mạng: Postgres/Redis/MinIO không publish ra ngoài; role app không chạm database `outline`.
+   - Mạng: Postgres/Redis không publish ra ngoài; Outline bind 127.0.0.1; role app không chạm database `outline`.
    - Rà import admin token: chỉ ở CLI đăng ký dự án. Endpoint bên thứ 3 dùng token user (grant).
    - Chạy skill `security-review` + agent `code-reviewer`; vá mục mức cao.
-4. Backup: lịch hằng ngày (Postgres 2 database + bucket MinIO), giữ N bản. Lỗi → exit code + log.
+4. Backup: lịch hằng ngày (Postgres 2 database + volume file storage Outline), giữ N bản. Lỗi → exit code + log.
 5. Diễn tập restore lên môi trường sạch: Outline mở lại được doc + file đính kèm, login qua bridge chạy. Ghi bước vào runbook.
 6. Viết `deployment-guide.md`, `operations-runbook.md` (break-glass: nơi cất API key admin, cách dùng), `third-party-document-api.md` (hợp đồng cho đội ERP).
 7. Cập nhật roadmap + changelog.

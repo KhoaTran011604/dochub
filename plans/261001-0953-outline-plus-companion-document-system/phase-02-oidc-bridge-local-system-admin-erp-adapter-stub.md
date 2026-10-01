@@ -31,6 +31,22 @@
 - Outline chấp nhận issuer/callback HTTP ở local. Không → reverse proxy TLS tự ký (xem phase 1).
 - User đầu tiên login vào Outline mới cài thành admin → `system_admin` login đầu tiên. Không → promote bằng `users.update_role`, cuối cùng mới sửa role trong Postgres (ghi runbook).
 
+## Hoãn từ review phase 1
+
+Chi tiết: [code review phase 1](../reports/code-reviewer-261001-1419-phase-01-monorepo-and-outline-infra.md). Quyết / làm ở đầu phase 2:
+
+| # | Việc | Lý do |
+|---|---|---|
+| W3 | Tách role DB (`bridge_app`, `companion_app`; `hd_document_apps` chỉ còn là owner chạy migration) hay chấp nhận rủi ro? | Hiện 1 role sở hữu cả 2 schema: companion bị khai thác thì đọc được hash `system_admin` và session/grant của bridge. Tách rẻ nhất khi chưa có dữ liệu thật (script init chỉ chạy trên volume trống). |
+| W6 | Package TS không build chạy trong Docker image thế nào: `tsx` là dependency runtime, native type stripping của Node, hay build riêng cho image? Pin `.nvmrc` tới minor. | `tsx` hiện chỉ là devDependency ở root → `pnpm install --prod` làm `migrate` lỗi `tsx: not found`; type stripping từ chối file `.ts` trong `node_modules`. |
+| S2 | Bật ESLint type-aware (`recommendedTypeChecked`, có `no-floating-promises`). | Lớp lỗi chính của code async trong bridge/companion; bật trước khi có code thì không phải sửa hàng loạt. |
+| S6 | Chọn hostname cho bridge trước khi điền biến OIDC. | `OIDC_AUTH_URI` do trình duyệt resolve, `OIDC_TOKEN_URI`/`OIDC_USERINFO_URI` do container Outline resolve → URL `localhost` chỉ đúng cho 1 trong 2 phía. |
+| S3 | CI: lint + typecheck file config ở root (`eslint.config.mjs`, `vitest.config.ts`; `pnpm -r lint` bỏ qua root); chạy migration bằng role không phải superuser. | CI đang migrate bằng `postgres` nên migration cần quyền cao vẫn qua CI nhưng hỏng ở môi trường thật. |
+
+Mang sang từ phase 1:
+- Upload file đính kèm chưa kiểm được (cần login) → kiểm ở bước 12.
+- Quyền file dump (`umask 077`) chưa kiểm trên Linux → kiểm khi có môi trường Linux.
+
 ## Requirements
 
 Chức năng:
@@ -118,7 +134,7 @@ Sửa: `infra/docker-compose.yml` (thêm service `oidc-bridge`), `infra/.env.exa
 9. Interaction routes: GET form (CSRF token), POST login → `interactionFinished`. View HTML tối giản, không framework.
 10. Audit log: thời điểm, username, kết quả, lý do, IP, user agent. Không ghi password.
 11. Dockerfile + service compose; điền `OIDC_*` cho Outline (discovery; lỗi thì khai tay).
-12. Thiết lập admin Outline: `system_admin` login đầu tiên ngay sau cài; kiểm role, không phải admin thì theo fallback ở mục Giả định (ghi vào `infra/README.md`). Upload thử 1 file PDF để xác nhận cấu hình MinIO của phase 1.
+12. Thiết lập admin Outline: `system_admin` login đầu tiên ngay sau cài; kiểm role, không phải admin thì theo fallback ở mục Giả định (ghi vào `infra/README.md`). Upload thử 1 file PDF để xác nhận lưu trữ file của phase 1.
 13. Unit test: rẽ nhánh xác thực, lockout, factory adapter. Test tích hợp: login trọn luồng với Outline trong compose.
 
 ## Todo List

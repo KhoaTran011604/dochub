@@ -29,7 +29,7 @@ Hệ thống gồm 1 sản phẩm có sẵn (Outline) + 2 app tự viết (bridg
 
 | Thành phần | Loại | Stack |
 |---|---|---|
-| Outline | Sản phẩm có sẵn, self-host | Image chính thức, pin tag stable có PR #13879 + digest. Không sửa code, không build từ `main` |
+| Outline | Sản phẩm có sẵn, self-host | Image chính thức, pin tag `1.10.1` + digest, local file storage. Không sửa code, không build từ `main` |
 | `apps/oidc-bridge` | Service Node độc lập | `oidc-provider` 9.x (chạy trên Koa), `argon2`, `zod`, `pg`. Trang login là HTML thuần, không framework frontend |
 | `apps/companion` | Web app + BFF | Next.js (App Router, route handlers), React, shadcn/ui (Radix UI + Tailwind CSS), react-hook-form, zod, TanStack Query, `iron-session`, `pg` |
 | `apps/permission-sync-worker` (MVP 2) | Worker Node | Vòng lặp + cờ CLI, Postgres advisory lock |
@@ -46,10 +46,9 @@ Hệ thống gồm 1 sản phẩm có sẵn (Outline) + 2 app tự viết (bridg
 | `outline` | Outline (pin tag + digest) | Wiki, editor, quyền, file |
 | `postgres` | Postgres 16+ | 1 instance, 2 database: `outline` (của Outline) và `hd_document_apps` (schema `bridge`, `companion`). Role riêng cho từng database |
 | `redis` | Redis 7 | Chỉ Outline dùng. App tự viết không dùng Redis |
-| `minio` + `minio-init` | MinIO (S3) | File đính kèm của Outline. Fallback: lưu local volume |
 | `oidc-bridge` | Build từ repo | IdP |
 | `companion` | Build từ repo | Web app + endpoint bên thứ 3 |
-| `backup` | Container chạy script | `pg_dump` 2 database + `mc mirror` bucket, theo lịch |
+| `backup` | Container chạy script | `pg_dump` 2 database + tar.gz file storage, theo lịch |
 | Reverse proxy TLS | Chưa chốt | Chỉ thêm nếu Outline đòi HTTPS cho issuer/callback; production chờ câu hỏi deploy |
 
 ### 1.4 Đã loại (không dùng)
@@ -58,7 +57,7 @@ Turborepo · ORM · Redis cho app tự viết · editor trong companion · magic
 
 ### 1.5 Version
 
-Plan chỉ khóa: `oidc-provider` 9.x, Postgres 16+, Redis 7, Outline (tag có PR #13879). Các version còn lại (Node cụ thể, Next.js, React, TanStack Query, Tailwind…) chưa pin trong plan: lấy bản stable lúc dựng phase 1 / phase 4 và khóa bằng `.nvmrc` + lockfile.
+Plan chỉ khóa: `oidc-provider` 9.x, Postgres 16, Redis 7, Outline `1.10.1`. Các version còn lại (Node 22, Next.js, React, TanStack Query, Tailwind…) chưa pin trong plan: lấy bản stable lúc dựng phase 1 / phase 4 và khóa bằng `.nvmrc` + lockfile.
 
 ### 1.6 Quyết định đã chốt qua validation
 
@@ -112,13 +111,13 @@ MVP 2 thêm: `permission-sync-worker ── ErpRoleSource ──> Outline API (a
 
 ```
 docker compose (infra/)
-├─ outline        ──> postgres (db outline), redis, minio
+├─ outline        ──> postgres (db outline), redis, volume file-storage
 ├─ oidc-bridge    ──> postgres (db hd_document_apps, schema bridge)
 ├─ companion      ──> postgres (db hd_document_apps, schema companion), Outline API
-├─ postgres, redis, minio   (không publish port ra ngoài mạng docker)
-└─ backup         ──> pg_dump + mc mirror theo lịch
+├─ postgres, redis   (không publish port ra ngoài mạng docker)
+└─ backup         ──> pg_dump + tar.gz file-storage theo lịch
 
-Mở ra ngoài: outline, oidc-bridge, companion.
+Mở ra ngoài: outline (127.0.0.1), oidc-bridge, companion.
 ```
 
 ### 2.4 Thành phần và trách nhiệm
@@ -132,7 +131,7 @@ Mở ra ngoài: outline, oidc-bridge, companion.
 | `packages/erp-adapters` | `ErpAuthAdapter` (`stub` / `none` / `http`), `ErpRoleSource` | 2, 9, 8 |
 | `packages/project-permission-sync` | Quy ước collection + group, CLI đăng ký dự án, logic sync | 3, 9 |
 | `packages/app-database` | Pool factory + migration SQL | 1 |
-| `infra/` | Compose, env mẫu, init DB/MinIO, backup/restore | 1, 7 |
+| `infra/` | Compose, env mẫu, init DB, backup/restore | 1, 7 |
 | `tests/e2e` | Playwright trên compose đầy đủ | 7 |
 
 Phụ thuộc giữa các gói:
@@ -153,8 +152,8 @@ hd-document/
 ├─ pnpm-workspace.yaml               # apps/*, packages/*
 ├─ tsconfig.base.json
 ├─ eslint.config.mjs
-├─ vitest.workspace.ts
-├─ .nvmrc  .editorconfig  .gitattributes  .gitignore
+├─ vitest.config.ts                  # test.projects (Vitest 5 bỏ workspace.ts)
+├─ .nvmrc  .editorconfig  .gitattributes  .prettierignore  .gitignore
 ├─ .github/workflows/
 │  └─ ci-lint-typecheck-test.yml
 │
@@ -306,16 +305,16 @@ hd-document/
 │
 ├─ infra/                                            # phase 1, bổ sung ở phase 7
 │  ├─ docker-compose.yml
+│  ├─ docker-compose.dev-ports.yml                           # phase 1
 │  ├─ docker-compose.production.yml                          # phase 7
 │  ├─ .env.example
 │  ├─ README.md
 │  ├─ postgres-init/01-create-databases.sql
-│  ├─ minio-init/create-outline-bucket.sh
 │  └─ backup/
 │     ├─ backup-postgres-databases.sh
-│     ├─ backup-minio-bucket.sh
+│     ├─ backup-outline-file-storage.sh
 │     ├─ restore-postgres-databases.sh                       # phase 7
-│     ├─ restore-minio-bucket.sh                             # phase 7
+│     ├─ restore-outline-file-storage.sh                     # phase 7
 │     └─ scheduled-backup-entrypoint.sh                      # phase 7
 │
 ├─ tests/e2e/                                        # phase 7
@@ -460,7 +459,7 @@ Chỉ trả id, tiêu đề, link. Scope key tách riêng `documents:create` và
 ### 3.6 Phi chức năng chung
 
 - File code < 200 dòng, tên kebab-case mô tả rõ. try/catch ở mọi route handler, lỗi không lộ chi tiết nội bộ.
-- Không secret trong git/log/image; `.env.example` đầy đủ. Postgres/Redis/MinIO không publish port ra ngoài mạng docker.
+- Không secret trong git/log/image; `.env.example` đầy đủ. Postgres/Redis không publish port ra ngoài mạng docker.
 - Frontend: query key tập trung 1 file (`queries/query-keys.ts`), mỗi domain 1 thư mục `queries.ts` + `mutations.ts`, hook dùng generic, hook mutation chỉ invalidate cache (toast/redirect qua callback), 1 component form động dùng chung.
 - Chạy được trên Windows + Linux (`.gitattributes` ép LF cho `infra/**/*.sh`).
 
@@ -468,17 +467,17 @@ Chỉ trả id, tiêu đề, link. Scope key tách riêng `documents:create` và
 
 ### MVP 1 (thứ tự: 1 → 2 → 3 → 4 → 7)
 
-**[Phase 1](./phase-01-monorepo-and-outline-infra.md): Monorepo + hạ tầng Outline (3 ngày)**
+**[Phase 1](./phase-01-monorepo-and-outline-infra.md): Monorepo + hạ tầng Outline (3 ngày)** — ✓ DONE
 
-- [ ] Root workspace + tsconfig + eslint + vitest
-- [ ] docker compose (postgres, redis, minio, outline pin)
-- [ ] Init database + role
-- [ ] `.env.example` đủ biến
-- [ ] `packages/app-database` + migration 0001
-- [ ] Script backup Postgres + MinIO
-- [ ] CI workflow
-- [ ] `infra/README.md`
-- [ ] Kiểm tra từ volume trống
+- [x] Root workspace + tsconfig + eslint + vitest.config.ts
+- [x] docker compose (postgres, redis, outline pin, local file storage)
+- [x] Init database + role (REVOKE CONNECT)
+- [x] `.env.example` đủ biến
+- [x] `packages/app-database` + migration 0001 + subpath export
+- [x] Script backup Postgres + file storage (tar.gz)
+- [x] CI workflow (format:check, typecheck, lint, test, timeout)
+- [x] `infra/README.md`
+- [x] Kiểm tra từ volume trống (clean stack, migration idempotent, backup restore)
 
 **[Phase 2](./phase-02-oidc-bridge-local-system-admin-erp-adapter-stub.md): OIDC bridge + system_admin + ERP stub (8 ngày)**
 

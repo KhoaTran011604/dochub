@@ -41,7 +41,7 @@ Layout MVP 1: `apps/oidc-bridge`, `apps/companion`, `packages/outline-api-client
 
 | # | Phase | Status | Effort | Link |
 |---|---|---|---|---|
-| 1 | Monorepo + hạ tầng Outline | Pending | 24h (3d) | [phase-01](./phase-01-monorepo-and-outline-infra.md) |
+| 1 | Monorepo + hạ tầng Outline | Done | 24h (3d) | [phase-01](./phase-01-monorepo-and-outline-infra.md) |
 | 2 | OIDC bridge + system_admin local + ERP auth stub | Pending | 64h (8d) | [phase-02](./phase-02-oidc-bridge-local-system-admin-erp-adapter-stub.md) |
 | 3 | Outline API client + quy ước dự án/collection/group | Pending | 16h (2d) | [phase-03](./phase-03-project-conventions-and-permission-sync-job.md) |
 | 4 | Companion: auth, template → form → doc, endpoint bên thứ 3 | Pending | 104h (13d) | [phase-04](./phase-04-companion-auth-template-form-third-party-endpoint.md) |
@@ -61,7 +61,7 @@ Layout MVP 1: `apps/oidc-bridge`, `apps/companion`, `packages/outline-api-client
 
 - MVP 1: 1 → 2 → 3 → 4 → 7. MVP 2: 9 → 8 → 10 → 5 → 7b. Phase 8 cần contract ERP; chưa có thì làm 5 trước.
 - Luồng ERP đầy đủ (tạo node qua API → link → user ERP vào Outline sửa → chỉ thấy cây được phân quyền) chạy thật sau khi xong 9 + 8 + 10. Endpoint tạo node đã có từ phase 4.
-- Ngoài: Docker, Node (theo `engines` của `oidc-provider`), Postgres 16+, Redis 7, MinIO, Outline (pin tag stable có PR #13879), `oidc-provider` 9.x.
+- Ngoài: Docker, Node 22, Postgres 16 (glibc), Redis 7, Outline `1.10.1` (local file storage), `oidc-provider` 9.x.
 - Mọi call Outline đi qua `packages/outline-api-client`.
 
 ## Rủi ro lịch (do bỏ spike)
@@ -158,3 +158,13 @@ MVP 2:
 #### Confirmed Decisions
 - MVP 2 làm phase 9 + 8 đầu tiên (khi ERP hỗ trợ auth/role), để luồng ERP tạo node → link → sửa trong Outline dùng được thật.
 - Thêm phase 10: API cây tài liệu, bên thứ 3 chỉ thấy cây user được phân quyền bên ERP.
+
+### Session 4 — 2026-10-01
+**Trigger:** Phase 01 implemented, tested (PASS), reviewed (7.5/10, 0 critical, fixes applied). Update plan files to match reality.
+
+#### Key Changes (Fallback Applied)
+- **MinIO dropped** (Docker Hub/quay.io refuse): Using Outline `FILE_STORAGE=local` + volume `outline-file-storage`, backup tar.gz.
+- **PR #13879 still open** (research report was wrong): Pinned Outline `1.10.1` + digest, rule "không move doc" in README.
+- **vitest.workspace.ts → vitest.config.ts** (Vitest 5 removed workspace.ts): Using `test.projects` in config.
+- **Review fixes applied**: postgres:16 (glibc, not alpine), Outline bind 127.0.0.1, backup umask 077 + COMPLETE marker, REVOKE CONNECT on postgres, format:check + timeout in CI, no-new-privileges + log rotation.
+- **Phase 01 marked Done** with review status, success criteria updated to ✓, deviations documented.

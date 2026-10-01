@@ -1,0 +1,129 @@
+name: hd-document
+
+# Postgres và Redis không publish port ra host. Dev cần nối Postgres từ host
+# (chạy migration) thì thêm file override: docker-compose.dev-ports.yml.
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  # Không giới hạn thì log json-file lớn dần tới khi đầy đĩa.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postgres:
+    <<: *service-defaults
+    # Bản Debian (glibc), không dùng -alpine: musl không có collation theo
+    # locale, và đổi libc khi đã có dữ liệu làm hỏng index text.
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
+      # Đọc bởi postgres-init/01-create-databases.sql
+      OUTLINE_DB_PASSWORD: ${OUTLINE_DB_PASSWORD:?set OUTLINE_DB_PASSWORD in infra/.env}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in infra/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # -h 127.0.0.1: server tạm lúc init chỉ nghe unix socket, nên chỉ healthy
+      # khi script init đã chạy xong.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Redis riêng của Outline. App tự viết không dùng chung.
+  redis:
+    <<: *service-defaults
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  outline:
+    <<: *service-defaults
+    # Pin tag + digest. Nâng cấp: đổi cả 2, đối chiếu .env.sample của tag mới.
+    image: outlinewiki/outline:1.10.1@sha256:832051f039b446c87aa23929cf92c00980c66aaa2d744d118c48c016ec816ad8
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      # Mặc định chỉ loopback: Outline chạy HTTP, người ngoài phải đi qua
+      # reverse proxy có TLS.
+      - "${OUTLINE_BIND_ADDRESS:-127.0.0.1}:${OUTLINE_HOST_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      URL: ${OUTLINE_URL:?set OUTLINE_URL in infra/.env}
+      PORT: "3000"
+      SECRET_KEY: ${OUTLINE_SECRET_KEY:?set OUTLINE_SECRET_KEY in infra/.env}
+      UTILS_SECRET: ${OUTLINE_UTILS_SECRET:?set OUTLINE_UTILS_SECRET in infra/.env}
+      DATABASE_URL: postgres://outline:${OUTLINE_DB_PASSWORD}@postgres:5432/outline
+      PGSSLMODE: disable
+      REDIS_URL: redis://redis:6379
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      FORCE_HTTPS: ${OUTLINE_FORCE_HTTPS:-false}
+      ENABLE_UPDATES: "false"
+      # Điền ở phase 2 (oidc-bridge). Để trống thì trang login chưa có nút đăng nhập.
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_AUTH_URI: ${OIDC_AUTH_URI:-}
+      OIDC_TOKEN_URI: ${OIDC_TOKEN_URI:-}
+      OIDC_USERINFO_URI: ${OIDC_USERINFO_URI:-}
+      OIDC_LOGOUT_URI: ${OIDC_LOGOUT_URI:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
+    volumes:
+      - outline-file-storage:/var/lib/outline/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/_health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Chạy tay khi stack đang chạy: docker compose run --rm backup
+  # Cố ý không depends_on postgres: `run` sẽ dựng lại container postgres nếu
+  # stack được up kèm file override, làm rớt kết nối của Outline.
+  backup:
+    image: postgres:16
+    profiles: ["backup"]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backup:/backup:ro
+      - ./backup-output:/backup-output
+      - outline-file-storage:/outline-file-storage:ro
+    entrypoint: ["sh", "-c"]
+    # 1 timestamp chung để dump database và file đính kèm nằm cùng thư mục.
+    # File COMPLETE chỉ có khi mọi bước xong: thư mục thiếu nó là backup hỏng.
+    command:
+      - >-
+        umask 077
+        && export BACKUP_TIMESTAMP=$$(date -u +%Y%m%dT%H%M%SZ)
+        && sh /backup/backup-postgres-databases.sh
+        && sh /backup/backup-outline-file-storage.sh
+        && touch /backup-output/$$BACKUP_TIMESTAMP/COMPLETE
+        && echo "Backup complete: /backup-output/$$BACKUP_TIMESTAMP"
+
+volumes:
+  postgres-data:
+  redis-data:
+  outline-file-storage:

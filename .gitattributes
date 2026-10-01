@@ -1,0 +1,4 @@
+# Script và SQL chạy trong container Linux: CRLF làm hỏng shebang / psql.
+* text=auto
+*.sh text eol=lf
+*.sql text eol=lf

@@ -32,6 +32,19 @@ Thiết kế:
 - Email đổi: chỉ cập nhật `erp_users`; Outline tự ghi đè email ở lần login kế (email verified). Không invite email mới (sẽ tạo user thứ 2).
 - Framework: **Koa + `@koa/router`**. Lý do: bridge buộc phải dùng Koa (`oidc-provider`), ~12 route JSON không cần hơn; 1 framework cho cả repo.
 
+## Addendum 2026-10-02: hệ quả của login qua IdP thật (GH-1)
+
+Bridge giờ tra `erp_users` bằng `sub` của IdP (`idp.hdwebsoft.co`, UUID v7). Phase này **vẫn theo mô hình ERP ĐẨY** (chốt lại 2026-10-02; 2 env `ERP_API_BASE_URL/ERP_API_KEY` kiểu "kéo" đã xóa khỏi `.env.example`). Thay đổi so với bản gốc:
+
+| Mục | Trước | Giờ |
+|---|---|---|
+| `erpUserId` trong `PUT /users/{erpUserId}` | id nội bộ ERP, dạng tự do | **= `sub` của IdP**, validate UUID (`z.uuid()`); sai dạng → 400 `ERP_USER_ID_NOT_UUID`. Ghi vào hợp đồng API: ERP phải gửi đúng `sub` IdP của user |
+| Nguồn email/tên | API provision | **Giữ nguyên** API provision (bridge không đọc claim IdP). Auto-provision từ claim IdP = việc hoãn, không thuộc phase này |
+| Deactivate | `erp_users.status` → bridge từ chối `/sso` | Y nguyên: `findAccount` trả `undefined` + callback upstream từ chối `deactivated`. Không cần gọi IdP |
+| Test ngày 1 "SSO lần đầu" | CLI ký link `/sso` | Dùng **user thật trên IdP** với `sub` đúng dòng seed (seed bằng `seed-dev-erp-user --erp-user-id <sub>`); test tự động dùng `fake-upstream-idp-server.ts` trong harness bridge. CLI `/sso` vẫn chạy được tới khi xóa |
+
+Rủi ro mới: ERP không biết `sub` IdP của user (nếu ERP dùng id khác) → mọi user bị `unknown_user`. Chốt với đội ERP **trước** khi seed thật (câu hỏi mở GH-1 #2). Fallback: thêm cột `idp_subject` vào `erp_users` + index unique, bridge tra theo cột đó, `erp_user_id` giữ id ERP (+2h, migration 0003).
+
 ## Giả định + fallback (thử ngay ngày 1, bước 2)
 
 | Giả định | Sai thì |

@@ -27,6 +27,21 @@
 - `documents.create` nhận `id` do client cấp → sinh `documentId` trước, lưu cùng idempotency key → gọi lại không tạo doc thứ 2.
 - **Phát hiện mới:** `/oauth/authorize` khi CHƯA có phiên Outline render thẳng màn Login (không qua route cần đăng nhập) → không lưu `postLoginPath` → sau SSO user đứng ở trang chủ Outline, mất màn đồng ý. Có phiên rồi thì màn đồng ý hiện ngay. Xem mục "Cái giá của tác giả thật".
 
+## Addendum 2026-10-02: hệ quả của login qua IdP thật (GH-1)
+
+Không còn bước "ERP bọc link bằng SSO". Hợp đồng link đổi như sau:
+
+| Mục | Trước | Giờ |
+|---|---|---|
+| Link ERP đưa cho user | `{bridge}/sso?token=<jwt>&returnTo=<url>` | **URL thuần** từ response API: `url` (`{outline}/doc/...`) hoặc `pendingUrl` (`{permissionApi}/pending/{id}`). ERP không ký gì |
+| Đường đăng nhập khi chưa có phiên Outline | handoff từ JWT | Outline → bridge `/interaction` → nút SSO → IdP (user đã login ERP nên thường có phiên IdP) → về doc |
+| `returnTo` allow-list `/pending/*` trong bridge | cần bật ở phase này | **Không cần nữa**. `PERMISSION_API_PUBLIC_URL` của bridge + nhánh `/pending/` trong `validate-return-to-url.ts` thành dead code; xóa cùng lúc xóa `/sso` (phase 6) |
+| Login CSRF / Referer / `exp` ≤ 60s | ràng buộc hợp đồng JWT | Hết áp dụng với user thật; IdP lo |
+
+Giả định mới, **thử ở ngày 1 cùng với OAuth Outline**: user đã có phiên IdP (login ERP trước) thì bước bridge → IdP **im lặng**, không hỏi mật khẩu lại. OpenIddict thường giữ cookie phiên; nếu IdP hỏi lại thì luồng vẫn chạy, chỉ thêm 1 màn login IdP, ghi vào tài liệu ERP.
+
+Quyết định nút SSO (2026-10-02): trang `/interaction/:uid` hiện nút "Đăng nhập SSO" + form admin cùng trang theo yêu cầu user → luồng chính hiện là **2 click** (link ERP + nút). Mặc định giữ. Nếu khi nghiệm thu ngày 1 user muốn đúng "1 click": bridge tự 302 sang IdP khi có `UPSTREAM_OIDC_*`, form admin dời sang `/interaction/:uid/admin` (route riêng, phải thêm lại vì đã gộp về 1 trang; ~2h), và sửa tiêu chí thành công bên dưới. Vấn đề "chưa có phiên Outline → `/oauth/authorize` mất màn đồng ý" là của Outline, **không đổi** vì IdP.
+
 ## Cái giá của "tác giả thật" (để user cân nhắc lại)
 
 Bước đồng ý + nhánh `202 pendingUrl` tồn tại CHỈ vì quyết định tác giả = user thật.
@@ -64,7 +79,7 @@ Authorization: Bearer <service key (scope documents:create)>     Idempotency-Key
 ```
 
 - `text`: markdown. Không có template/form (đã bỏ).
-- `url`: URL doc Outline thuần (`{OUTLINE_URL}/doc/...`). **ERP tự bọc:** `{bridge}/sso?token=<jwt>&returnTo=<url>`. Với `pendingUrl` cũng bọc y hệt.
+- `url`: URL doc Outline thuần (`{OUTLINE_URL}/doc/...`). ERP đưa thẳng cho user, **không bọc** (đổi 2026-10-02, xem Addendum; trước là `{bridge}/sso?token&returnTo`). `pendingUrl` cũng đưa thẳng.
 - Có grant còn hiệu lực của `actingErpUserId` → tạo bằng token user → `201`. Quyền do Outline ép; user không có quyền ghi → `403`.
 - Chưa có grant / grant hỏng → lưu yêu cầu → `202`. Yêu cầu chờ hết hạn sau 7 ngày (env).
 - Gửi lại cùng `Idempotency-Key` + cùng body → trạng thái hiện tại (`202` khi còn chờ, `201` khi đã tạo). Đây là cách ERP lấy `documentId` sau khi user hoàn tất. Cùng key khác body → `409`.
@@ -83,7 +98,7 @@ ERP ─ POST /api/v1/documents ─> permission API
        ├ có grant → access token (refresh dưới SELECT … FOR UPDATE) → documents.create(id tự sinh) → 201
        └ không   → pending_document_requests → 202 { pendingUrl }
 
-Trình duyệt: {bridge}/sso?token&returnTo=<pendingUrl>
+Trình duyệt: mở thẳng pendingUrl (chưa có phiên Outline → Outline → bridge → IdP → quay lại)
   → GET /pending/:id        (đã xong → 302 doc; chưa → state + PKCE, cookie ràng buộc) → 302 {outline}/oauth/authorize
   → user bấm Đồng ý (UI Outline)
   → GET /oauth/outline/callback?code&state
@@ -115,7 +130,7 @@ Tạo `packages/outline-api-client/src/`: `auth-api.ts`, `oauth-token-api.ts`; t
 
 Tạo: `packages/app-database/migrations/0004-create-user-grant-pending-request-and-idempotency-tables.sql`, `tests/e2e/create-node-pending-consent-flow.spec.ts`.
 
-Sửa: `apps/oidc-bridge/src/sso/validate-return-to-url.ts` (bật nhánh `/pending/`, nếu phase 2 chưa bật), `apps/outline-permission-api/src/users/set-erp-user-active-state-service.ts` (deactivate → xóa grant + gọi `/oauth/revoke`), `infra/.env.example` (`OUTLINE_OAUTH_CLIENT_ID/SECRET`, `TOKEN_SEAL_PASSWORD`, `PENDING_REQUEST_TTL_DAYS`).
+Sửa: `apps/outline-permission-api/src/users/set-erp-user-active-state-service.ts` (deactivate → xóa grant + gọi `/oauth/revoke`), `infra/.env.example` (`OUTLINE_OAUTH_CLIENT_ID/SECRET`, `TOKEN_SEAL_PASSWORD`, `PENDING_REQUEST_TTL_DAYS`).
 
 ## Implementation Steps
 

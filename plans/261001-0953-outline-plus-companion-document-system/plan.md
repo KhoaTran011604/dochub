@@ -1,10 +1,10 @@
 ---
 title: "Hệ thống tài liệu dự án: Outline + OIDC bridge (SSO) + Permission API"
 description: "Không tự viết UI. Outline tùy biến bằng config; OIDC bridge cho SSO 1 click từ ERP; permission API headless để ERP đẩy quyền và tạo node, user vào Outline sửa. 30 ngày công, không còn dự phòng."
-status: pending
+status: in-progress
 priority: P2
 effort: 240h
-branch: develop
+branch: feat/phase-3
 tags: [feature, infra, auth, sso, backend, api, permissions]
 created: 2026-10-01
 ---
@@ -34,10 +34,14 @@ ERP (server) ── service key ──> outline-permission-api ── admin toke
                                   └─ POST documents ── token OAuth của user ──> documents.create
                                        → 201 { url } | 202 { pendingUrl }
 
-ERP (trình duyệt) ── {bridge}/sso?token=<jwt>&returnTo=<url> ──> oidc-bridge
-                                  │ verify JWT, 1 lần, đặt handoff        └─ system_admin: form argon2id
-                                  └─ 302 ──> Outline ──OIDC──> oidc-bridge (tự hoàn tất) ──> doc
+ERP (trình duyệt) ── link thẳng {outline}/doc/<slug> (hoặc pendingUrl) ──> Outline
+   chưa có phiên ──OIDC──> oidc-bridge /interaction ── nút SSO ──> IdP thật (idp.hdwebsoft.co, PKCE)
+                                  │  callback: sub → erp_users (active?) → handoff 1 lần → hoàn tất
+                                  └─ system_admin: form argon2id cùng trang (break-glass)
+   ──> Outline callback ──> doc
 ```
+
+**Đổi 2026-10-02 (GH-1):** đường vào của user ERP là IdP thật, không còn ERP ký JWT. `/sso?token&returnTo` + `ERP_SSO_*` chỉ còn cho dev/test, xóa khi IdP chạy ổn. Chi tiết: [plan GH-1](../261002-1302-GH-1-upstream-oidc-idp-login/plan.md). Hệ quả cho phase 4/5 ghi ở mục "Addendum 2026-10-02" trong từng phase file.
 
 Layout: `apps/oidc-bridge`, `apps/outline-permission-api`, `packages/outline-api-client`, `packages/outline-workspace-setup`, `packages/app-database`, `infra/`, `tests/e2e` (2 spec).
 
@@ -46,14 +50,14 @@ Layout: `apps/oidc-bridge`, `apps/outline-permission-api`, `packages/outline-api
 | # | Phase | Status | Effort | Link |
 |---|---|---|---|---|
 | 1 | Monorepo + hạ tầng Outline | Done | 24h (3d) | [phase-01](./phase-01-monorepo-and-outline-infra.md) |
-| 2 | OIDC bridge + SSO token handoff + system_admin local | Pending | 68h (8,5d) | [phase-02](./phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) |
+| 2 | OIDC bridge + SSO token handoff + system_admin local (+ addendum: login qua IdP thật, GH-1) | Done | 68h (8,5d) | [phase-02](./phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) |
 | 3 | Cấu hình + branding Outline, Outline API client | Pending | 24h (3d) | [phase-03](./phase-03-outline-config-branding-and-api-client.md) |
 | 4 | Permission API: user, dự án, cấp/thu quyền | Pending | 56h (7d) | [phase-04](./phase-04-permission-layer-api-users-projects-and-grants.md) |
 | 5 | API tạo node, tác giả là user thật | Pending | 44h (5,5d) | [phase-05](./phase-05-create-node-api-with-real-user-authorship.md) |
 | 6 | Rà bảo mật, backup/restore, runbook, tài liệu ERP | Pending | 24h (3d) | [phase-06](./phase-06-testing-hardening-operations-docs.md) |
 | 7 | API cây tài liệu cho bên thứ 3 | Deferred | 16h (2d) | [phase-07](./phase-07-deferred-third-party-document-tree-api.md) |
 
-**Tổng 1-6: 240h = 30 ngày công** (đã xong 24h, còn 216h = 27 ngày). Bằng đúng ngân sách MVP 1 cũ (29 ngày + 1 dự phòng) nhưng **không còn ngày dự phòng nào**. Toàn lộ trình giảm từ ~49 ngày (MVP 1 + MVP 2 cũ) xuống 30 ngày + 2 ngày hoãn. UI companion bị bỏ, nhưng API đẩy quyền (trước nằm ở MVP 2 dưới dạng sync worker + adapter ERP) và SSO handoff vào phạm vi chính.
+**Tổng 1-6: 240h = 30 ngày công** (đã xong 92h phase 1–2, còn 148h = 18,5 ngày). Bằng đúng ngân sách MVP 1 cũ (29 ngày + 1 dự phòng) nhưng **không còn ngày dự phòng nào**. Toàn lộ trình giảm từ ~49 ngày (MVP 1 + MVP 2 cũ) xuống 30 ngày + 2 ngày hoãn. UI companion bị bỏ, nhưng API đẩy quyền (trước nằm ở MVP 2 dưới dạng sync worker + adapter ERP) và SSO handoff vào phạm vi chính.
 
 Muốn có dự phòng: đổi tác giả doc sang service account → phase 5 còn ~14h, tiết kiệm ~30h (3,75 ngày). Chi tiết: phase-05, mục "Cái giá của tác giả thật".
 

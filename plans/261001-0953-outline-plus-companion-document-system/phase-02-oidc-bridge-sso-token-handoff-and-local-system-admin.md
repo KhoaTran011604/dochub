@@ -11,9 +11,10 @@
 - Ngày: 2026-10-01
 - Mô tả: service Node dùng `oidc-provider` 9.x làm IdP duy nhất của Outline. User ERP vào bằng link 1 click (JWT ngắn hạn do ERP ký); `system_admin` vào bằng form local (argon2id). Việc quan trọng nhất của cả plan → làm trước.
 - Priority: P1
-- Implementation status: Pending
-- Review status: Chưa review
+- Implementation status: **Done** (2026-10-02; tester + code-reviewer report trong `plans/reports/*261002-0915*`, `*261002-1327*`)
+- Review status: Reviewed, fixes applied
 - Effort: 68h (8,5 ngày)
+- **Addendum 2026-10-02 (GH-1):** user ERP đăng nhập qua IdP thật `idp.hdwebsoft.co` (bridge làm RP, PKCE S256, `/upstream/callback`, gate `erp_users` theo `sub`). `/sso` handoff + `ERP_SSO_*` giữ lại chỉ cho dev/test, xóa khi IdP chạy ổn. Trang `/interaction/:uid` hiện nút "Đăng nhập SSO" + form `system_admin` cùng trang (theo yêu cầu user). Chi tiết: [plan GH-1](../261002-1302-GH-1-upstream-oidc-idp-login/phase-01-bridge-as-relying-party-of-upstream-idp.md).
 
 ## Key Insights
 

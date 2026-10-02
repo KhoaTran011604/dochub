@@ -1,5 +1,32 @@
 # Nhật ký dự án
 
+## [2026-10-02] Bridge đăng nhập qua IdP thật (upstream OIDC)
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/oidc-bridge/src/upstream/`, env, test, phụ thuộc
+
+### Đã thêm
+
+- **Upstream OIDC login:** Bridge là relying party của IdP thật (https://idp.hdwebsoft.co, OpenIddict). Flow: `/interaction/:uid` → `/upstream/callback` với authorization code + PKCE S256.
+- **Env mới:** `UPSTREAM_OIDC_ISSUER_URL`, `UPSTREAM_OIDC_CLIENT_ID`, `UPSTREAM_OIDC_CLIENT_SECRET` (tùy chọn; public client), `UPSTREAM_OIDC_SCOPES` (mặc định `openid profile email`).
+- **Phụ thuộc:** `openid-client@^6.8.8`.
+- **Files mới:** `src/upstream/{upstream-oidc-client.ts, upstream-login-transaction-cookie.ts, upstream-login-routes.ts}`.
+- **Audit:** Event `upstream_login` (success / rejected: `transaction_missing`, `idp_denied`, `callback_invalid`, `idp_unavailable`, `unknown_user`, `deactivated`, `email_reserved_for_system_admin`).
+- **Break-glass:** Form `system_admin` chuyển sang `GET /interaction/:uid/admin` khi upstream configured.
+- **Test:** 7 integration test + 89 unit test pass.
+
+### Đã sửa
+
+- `ERP_SSO_*` + `/sso` route trở thành **tùy chọn** (khi có `UPSTREAM_OIDC_ISSUER_URL` hoặc `ERP_SSO_JWKS_URL`/`ERP_SSO_PUBLIC_KEY_PEM`).
+- Config require ít nhất 1 path (upstream hoặc ERP key).
+- `infra/README.md`: thêm mục "Đăng nhập qua IdP thật".
+
+### Ghi chú
+
+- Profile (email/name) từ `erp_users`, không từ IdP.
+- User phải có trong `erp_users` (active) → link `/upstream/callback` → verify `id_token` (RS256, `iss`, `aud`, `exp`) → match `sub` với `erp_user_id` → sso_handoffs → finishLogin.
+- Production reject HTTP upstream issuer; cookie `hd_upstream_login` (signed, httpOnly, lax, path `/upstream`, 10m, read-once).
+
 ## [2026-10-02] Nút "Đăng nhập qua ERP" trên form login của bridge
 
 **Status:** ✓ Hoàn thành  

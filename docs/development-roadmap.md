@@ -7,13 +7,19 @@ Sản phẩm không tự viết web UI: Outline (tùy biến bằng config + bra
 | Phase | Tên | Trạng thái | Ngày công | Ghi chú |
 |-------|-----|-----------|-----------|---------|
 | 1 | Monorepo + hạ tầng Outline | ✓ Hoàn thành | 3d | [phase-01](../plans/261001-0953-outline-plus-companion-document-system/phase-01-monorepo-and-outline-infra.md) |
-| 2 | OIDC bridge + SSO token handoff + system_admin local | Pending | 8,5d | [phase-02](../plans/261001-0953-outline-plus-companion-document-system/phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) |
+| 2 | OIDC bridge + SSO token handoff + system_admin local | ✓ Hoàn thành | 8,5d | [phase-02](../plans/261001-0953-outline-plus-companion-document-system/phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) · **Addendum (2026-10-02):** upstream IdP login (OIDC RP, openid-client, PKCE S256, `/upstream/callback`, gate `erp_users`, break-glass `/admin`) |
 | 3 | Cấu hình + branding Outline, Outline API client | Pending | 3d | [phase-03](../plans/261001-0953-outline-plus-companion-document-system/phase-03-outline-config-branding-and-api-client.md) |
 | 4 | Permission API: user, dự án, cấp/thu quyền | Pending | 7d | [phase-04](../plans/261001-0953-outline-plus-companion-document-system/phase-04-permission-layer-api-users-projects-and-grants.md) |
 | 5 | API tạo node, tác giả là user thật | Pending | 5,5d | [phase-05](../plans/261001-0953-outline-plus-companion-document-system/phase-05-create-node-api-with-real-user-authorship.md) |
 | 6 | Rà bảo mật, backup/restore, runbook, tài liệu ERP | Pending | 3d | [phase-06](../plans/261001-0953-outline-plus-companion-document-system/phase-06-testing-hardening-operations-docs.md) |
 
 **Tiến độ:** 1/6 phase (3/30 ngày công, 10%)
+
+## Theo dõi
+
+**Phase 2+ follow-up (2026-10-02 note):**
+- Khi upstream IdP chạy ổn: xóa `/sso` handoff route, `ERP_SSO_*` env, CLI `dev:sign-sso-link`, E2E handoff test (viết lại bằng IdP giả).
+- Phase 4: provision `erp_users` với `erp_user_id = sub` của IdP (hiện chưa rõ ID nội bộ ERP là gì).
 
 ## Hoãn
 

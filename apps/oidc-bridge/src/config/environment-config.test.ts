@@ -60,6 +60,40 @@ describe("loadEnvironmentConfig", () => {
     ).not.toThrow();
   });
 
+  it("accepts an upstream IdP instead of an ERP key source", () => {
+    const config = load({
+      ERP_SSO_PUBLIC_KEY_PEM: undefined,
+      ERP_SSO_ISSUER: undefined,
+      SSO_ALLOWED_REFERRER_ORIGINS: "",
+      UPSTREAM_OIDC_ISSUER_URL: "https://idp.example.com/",
+      UPSTREAM_OIDC_CLIENT_ID: "hd-dochub",
+    });
+
+    expect(config.UPSTREAM_OIDC_ISSUER_URL).toBe("https://idp.example.com");
+    expect(config.UPSTREAM_OIDC_CLIENT_SECRET).toBeUndefined();
+    expect(config.UPSTREAM_OIDC_SCOPES).toBe("openid profile email");
+  });
+
+  it("requires a client id with the upstream issuer, and an ERP issuer with an ERP key", () => {
+    expect(() =>
+      load({ UPSTREAM_OIDC_ISSUER_URL: "https://idp.example.com" }),
+    ).toThrow(/UPSTREAM_OIDC_CLIENT_ID/);
+    expect(() => load({ ERP_SSO_ISSUER: undefined })).toThrow(
+      /ERP_SSO_ISSUER/,
+    );
+  });
+
+  it("refuses an http upstream issuer in production", () => {
+    const upstream = {
+      UPSTREAM_OIDC_ISSUER_URL: "http://idp.example.com",
+      UPSTREAM_OIDC_CLIENT_ID: "hd-dochub",
+    };
+    expect(() => load({ ...upstream, NODE_ENV: "production" })).toThrow(
+      /UPSTREAM_OIDC_ISSUER_URL/,
+    );
+    expect(() => load(upstream)).not.toThrow();
+  });
+
   it("only accepts asymmetric ERP algorithms", () => {
     expect(() => load({ ERP_SSO_ALGORITHMS: "HS256" })).toThrow(
       /ERP_SSO_ALGORITHMS/,

@@ -6,7 +6,9 @@ export type AuthAuditEvent =
   /** Handoff được dùng ở /interaction để đăng nhập. */
   | "sso_login"
   /** Form system_admin. */
-  | "admin_login";
+  | "admin_login"
+  /** Callback từ IdP thật (/upstream/callback). */
+  | "upstream_login";
 
 export interface AuthAuditEntry {
   event: AuthAuditEvent;

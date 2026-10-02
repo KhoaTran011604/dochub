@@ -36,6 +36,11 @@ export class CookieJarTestBrowser {
     return this.cookies.has(name);
   }
 
+  /** Path của cookie (oidc-provider gắn uid interaction vào path cookie). */
+  cookiePath(name: string): string | undefined {
+    return this.cookies.get(name)?.path;
+  }
+
   private store(setCookies: string[]): void {
     for (const header of setCookies) {
       const [pair = "", ...attributes] = header

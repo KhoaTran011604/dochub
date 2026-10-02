@@ -40,6 +40,18 @@ export interface SsoHandoffRouteDependencies {
 const firstQueryValue = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
+/** Cookie mang handoff_id (không mang danh tính) tới /interaction; dùng chung cho /sso và callback IdP. */
+export function setSsoHandoffCookie(ctx: Context, handoffId: string): void {
+  ctx.cookies.set(SSO_HANDOFF_COOKIE_NAME, handoffId, {
+    signed: true,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: ctx.secure,
+    path: SSO_HANDOFF_COOKIE_PATH,
+    maxAge: HANDOFF_LIFETIME_SECONDS * 1000,
+  });
+}
+
 /**
  * GET /sso?token=<jwt>&returnTo=<url>: đổi JWT 1 lần của ERP lấy cookie
  * handoff, rồi đưa trình duyệt về `returnTo`. Outline chưa có phiên sẽ tự đi
@@ -138,14 +150,7 @@ export function createSsoHandoffRoute(
     // Bridge đang giữ session của account khác thì provider sẽ trả luôn account
     // đó và bỏ qua handoff. Xóa cookie session → luôn vào /interaction.
     ctx.cookies.set(BRIDGE_COOKIE_NAMES.session, null, { signed: true });
-    ctx.cookies.set(SSO_HANDOFF_COOKIE_NAME, handoff.handoffId, {
-      signed: true,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: ctx.secure,
-      path: SSO_HANDOFF_COOKIE_PATH,
-      maxAge: HANDOFF_LIFETIME_SECONDS * 1000,
-    });
+    setSsoHandoffCookie(ctx, handoff.handoffId);
 
     await deps.audit({
       event: "sso_handoff",

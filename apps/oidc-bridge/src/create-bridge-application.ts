@@ -5,7 +5,10 @@ import { createErpUserDirectoryReader } from "./accounts/erp-user-directory-read
 import { createAuthAuditLogger } from "./audit/auth-audit-logger.ts";
 import { createSystemAdminAuthenticator } from "./auth/local-system-admin-authenticator.ts";
 import { createLoginRateLimiter } from "./auth/login-rate-limiter-and-lockout.ts";
-import type { EnvironmentConfig } from "./config/environment-config.ts";
+import {
+  isErpHandoffEnabled,
+  type EnvironmentConfig,
+} from "./config/environment-config.ts";
 import { createHealthCheckRoute } from "./health/health-check-route.ts";
 import { registerLoginInteractionRoutes } from "./interactions/login-interaction-routes.ts";
 import { createFindAccount } from "./provider/find-account-and-claims.ts";
@@ -13,6 +16,13 @@ import { createOidcProvider } from "./provider/oidc-provider-configuration.ts";
 import { resolveErpPublicKey } from "./sso/erp-public-key-resolver.ts";
 import { createSsoHandoffRepository } from "./sso/sso-handoff-repository.ts";
 import { createSsoHandoffRoute } from "./sso/sso-handoff-route.ts";
+import {
+  createRedirectToUpstreamLogin,
+  registerUpstreamCallbackRoute,
+  UPSTREAM_CALLBACK_PATH,
+  type RedirectToUpstreamLogin,
+} from "./upstream/upstream-login-routes.ts";
+import { createUpstreamOidcClient } from "./upstream/upstream-oidc-client.ts";
 
 /**
  * Ráp bridge: provider OIDC (chính nó là app Koa) + các route tự viết
@@ -58,34 +68,59 @@ export async function createBridgeApplication(
 
   const router = new Router();
   router.get("/healthz", createHealthCheckRoute(pool));
-  router.get(
-    "/sso",
-    createSsoHandoffRoute({
-      erpPublicKey: await resolveErpPublicKey({
-        jwksUrl: config.ERP_SSO_JWKS_URL,
-        publicKeyPem: config.ERP_SSO_PUBLIC_KEY_PEM,
-        algorithms: config.ERP_SSO_ALGORITHMS,
+
+  // Đường 1: handoff JWT của ERP (erp-fake / CLI dev). Config bảo đảm có ERP_SSO_ISSUER khi bật.
+  if (isErpHandoffEnabled(config)) {
+    router.get(
+      "/sso",
+      createSsoHandoffRoute({
+        erpPublicKey: await resolveErpPublicKey({
+          jwksUrl: config.ERP_SSO_JWKS_URL,
+          publicKeyPem: config.ERP_SSO_PUBLIC_KEY_PEM,
+          algorithms: config.ERP_SSO_ALGORITHMS,
+        }),
+        tokenPolicy: {
+          issuer: config.ERP_SSO_ISSUER ?? "",
+          audience: config.ERP_SSO_AUDIENCE,
+          algorithms: config.ERP_SSO_ALGORITHMS,
+          maxLifetimeSeconds: config.SSO_TOKEN_MAX_LIFETIME_SECONDS,
+        },
+        referrerPolicy: {
+          required: config.SSO_REQUIRE_REFERRER,
+          allowedOrigins: config.SSO_ALLOWED_REFERRER_ORIGINS,
+        },
+        returnToAllowList: {
+          outlineUrl: config.OUTLINE_URL,
+          permissionApiPublicUrl: config.PERMISSION_API_PUBLIC_URL,
+        },
+        handoffs,
+        readErpUser,
+        audit,
+        erpPortalUrl: config.ERP_PORTAL_URL,
       }),
-      tokenPolicy: {
-        issuer: config.ERP_SSO_ISSUER,
-        audience: config.ERP_SSO_AUDIENCE,
-        algorithms: config.ERP_SSO_ALGORITHMS,
-        maxLifetimeSeconds: config.SSO_TOKEN_MAX_LIFETIME_SECONDS,
-      },
-      referrerPolicy: {
-        required: config.SSO_REQUIRE_REFERRER,
-        allowedOrigins: config.SSO_ALLOWED_REFERRER_ORIGINS,
-      },
-      returnToAllowList: {
-        outlineUrl: config.OUTLINE_URL,
-        permissionApiPublicUrl: config.PERMISSION_API_PUBLIC_URL,
-      },
+    );
+  }
+
+  // Đường 2: IdP OIDC thật. Thành công cũng đi qua handoff → cùng 1 chỗ hoàn tất đăng nhập.
+  let redirectToUpstreamLogin: RedirectToUpstreamLogin | undefined;
+  if (config.UPSTREAM_OIDC_ISSUER_URL && config.UPSTREAM_OIDC_CLIENT_ID) {
+    const upstreamDeps = {
+      upstream: createUpstreamOidcClient({
+        issuerUrl: config.UPSTREAM_OIDC_ISSUER_URL,
+        clientId: config.UPSTREAM_OIDC_CLIENT_ID,
+        clientSecret: config.UPSTREAM_OIDC_CLIENT_SECRET,
+        scopes: config.UPSTREAM_OIDC_SCOPES,
+        redirectUri: `${config.BRIDGE_PUBLIC_URL}${UPSTREAM_CALLBACK_PATH}`,
+      }),
       handoffs,
       readErpUser,
       audit,
       erpPortalUrl: config.ERP_PORTAL_URL,
-    }),
-  );
+    };
+    registerUpstreamCallbackRoute(router, upstreamDeps);
+    redirectToUpstreamLogin = createRedirectToUpstreamLogin(upstreamDeps);
+  }
+
   registerLoginInteractionRoutes(router, {
     provider,
     handoffs,
@@ -100,6 +135,7 @@ export async function createBridgeApplication(
     csrfSecret: config.BRIDGE_COOKIE_KEYS[0] ?? "",
     outlineOrigin: new URL(config.OUTLINE_URL).origin,
     erpPortalUrl: config.ERP_PORTAL_URL,
+    redirectToUpstreamLogin,
   });
 
   // `provider.use` chèn middleware TRƯỚC handler của provider: route tự viết

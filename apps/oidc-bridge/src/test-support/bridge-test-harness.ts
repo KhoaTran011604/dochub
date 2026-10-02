@@ -16,6 +16,11 @@ import {
 } from "../config/environment-config.ts";
 import { createBridgeApplication } from "../create-bridge-application.ts";
 import { CookieJarTestBrowser } from "./cookie-jar-test-browser.ts";
+import {
+  FAKE_UPSTREAM_CLIENT_ID,
+  startFakeUpstreamIdp,
+  type FakeUpstreamIdp,
+} from "./fake-upstream-idp-server.ts";
 import { findFreeTcpPort } from "./find-free-tcp-port.ts";
 import {
   createOutlineOidcClientSimulator,
@@ -37,6 +42,8 @@ export interface BridgeTestHarness extends OutlineOidcClientSimulator {
   baseUrl: string;
   /** Role owner: seed `erp_users`, đọc audit, dọn dữ liệu test. */
   ownerPool: pg.Pool;
+  /** Chỉ có khi dựng với `{ upstream: true }`. */
+  fakeIdp: FakeUpstreamIdp | undefined;
   newBrowser(): CookieJarTestBrowser;
   seedErpUser(overrides?: { email?: string; status?: string }): Promise<string>;
   signHandoffToken(
@@ -49,15 +56,22 @@ export interface BridgeTestHarness extends OutlineOidcClientSimulator {
   stop(): Promise<void>;
 }
 
-export async function startBridgeTestHarness(): Promise<BridgeTestHarness> {
+export async function startBridgeTestHarness(
+  options: { upstream?: boolean } = {},
+): Promise<BridgeTestHarness> {
   const runId = `it-${randomBytes(6).toString("hex")}`;
   const erpKeys = await generateKeyPair("ES256", { extractable: true });
   const signingKeys = await generateKeyPair("RS256", { extractable: true });
   const port = await findFreeTcpPort();
   const baseUrl = `http://127.0.0.1:${port}`;
+  const fakeIdp = options.upstream
+    ? await startFakeUpstreamIdp(`${baseUrl}/upstream/callback`)
+    : undefined;
 
   const config = loadEnvironmentConfig(
     validBridgeEnvironment({
+      UPSTREAM_OIDC_ISSUER_URL: fakeIdp?.issuerUrl,
+      UPSTREAM_OIDC_CLIENT_ID: fakeIdp ? FAKE_UPSTREAM_CLIENT_ID : undefined,
       PORT: String(port),
       BRIDGE_PUBLIC_URL: baseUrl,
       BRIDGE_DATABASE_URL: process.env.BRIDGE_DATABASE_URL,
@@ -100,6 +114,7 @@ export async function startBridgeTestHarness(): Promise<BridgeTestHarness> {
     config,
     baseUrl,
     ownerPool,
+    fakeIdp,
     newBrowser: () => new CookieJarTestBrowser(baseUrl),
 
     async seedErpUser(overrides = {}) {
@@ -120,7 +135,7 @@ export async function startBridgeTestHarness(): Promise<BridgeTestHarness> {
     signHandoffToken: (erpUserId, overrides = {}) =>
       new SignJWT({})
         .setProtectedHeader({ alg: "ES256", typ: "JWT" })
-        .setIssuer(config.ERP_SSO_ISSUER)
+        .setIssuer(config.ERP_SSO_ISSUER ?? "")
         .setAudience(config.ERP_SSO_AUDIENCE)
         .setSubject(erpUserId)
         .setJti(overrides.jti ?? randomUUID())
@@ -144,6 +159,7 @@ export async function startBridgeTestHarness(): Promise<BridgeTestHarness> {
 
     async stop() {
       await close();
+      await fakeIdp?.stop();
       // Chỉ dọn dữ liệu của lần chạy này (database dev dùng chung).
       await ownerPool.query(
         `DELETE FROM bridge.sso_handoffs WHERE erp_user_id LIKE $1`,

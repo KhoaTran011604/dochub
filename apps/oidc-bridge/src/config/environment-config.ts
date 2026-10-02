@@ -25,6 +25,12 @@ const optional = <T extends z.ZodType>(schema: T) =>
     schema.optional(),
   );
 
+/** Route `/sso` (handoff JWT của ERP) chỉ bật khi có nguồn khóa của ERP. */
+export const isErpHandoffEnabled = (env: {
+  ERP_SSO_JWKS_URL?: string | undefined;
+  ERP_SSO_PUBLIC_KEY_PEM?: string | undefined;
+}): boolean => Boolean(env.ERP_SSO_JWKS_URL || env.ERP_SSO_PUBLIC_KEY_PEM);
+
 const environmentSchema = z
   .object({
     NODE_ENV: z
@@ -66,7 +72,15 @@ const environmentSchema = z
     SYSTEM_ADMIN_DISPLAY_NAME: z.string().min(1).default("System Admin"),
     SYSTEM_ADMIN_PASSWORD_HASH: z.string().startsWith("$argon2id$"),
 
-    ERP_SSO_ISSUER: z.string().min(1),
+    /** IdP OIDC thật (OpenIddict): bridge chuyển user sang đây đăng nhập. Bỏ trống = chỉ handoff + form admin. */
+    UPSTREAM_OIDC_ISSUER_URL: optional(httpUrl),
+    UPSTREAM_OIDC_CLIENT_ID: optional(z.string().min(1)),
+    /** Trống = public client (PKCE); có = confidential (`client_secret_basic`). */
+    UPSTREAM_OIDC_CLIENT_SECRET: optional(z.string().min(1)),
+    UPSTREAM_OIDC_SCOPES: z.string().min(1).default("openid profile email"),
+
+    /** Handoff JWT của ERP (erp-fake / CLI dev). Bắt buộc khi không có upstream IdP. */
+    ERP_SSO_ISSUER: optional(z.string().min(1)),
     ERP_SSO_AUDIENCE: z.string().min(1).default("hd-document-sso"),
     ERP_SSO_ALGORITHMS: z
       .string()
@@ -96,15 +110,33 @@ const environmentSchema = z
     ERP_PORTAL_URL: optional(httpUrl),
   })
   .superRefine((env, context) => {
+    const issue = (path: string, message: string) =>
+      context.addIssue({ code: "custom", path: [path], message });
+    const handoffEnabled = isErpHandoffEnabled(env);
+
+    if (env.UPSTREAM_OIDC_ISSUER_URL && !env.UPSTREAM_OIDC_CLIENT_ID) {
+      issue("UPSTREAM_OIDC_CLIENT_ID", "required with UPSTREAM_OIDC_ISSUER_URL");
+    }
+    // IdP HTTP chỉ cho test/dev local (openid-client phải tắt kiểm HTTPS).
+    if (
+      env.NODE_ENV === "production" &&
+      env.UPSTREAM_OIDC_ISSUER_URL?.startsWith("http:")
+    ) {
+      issue("UPSTREAM_OIDC_ISSUER_URL", "must be https in production");
+    }
+    // Phải có ít nhất 1 đường đăng nhập cho user ERP.
     // Production: đặt đúng 1 nguồn khóa. Cả hai chỉ để dev (xem erp-public-key-resolver).
-    if (!env.ERP_SSO_JWKS_URL && !env.ERP_SSO_PUBLIC_KEY_PEM) {
-      context.addIssue({
-        code: "custom",
-        path: ["ERP_SSO_JWKS_URL"],
-        message: "set ERP_SSO_JWKS_URL or ERP_SSO_PUBLIC_KEY_PEM",
-      });
+    if (!env.UPSTREAM_OIDC_ISSUER_URL && !handoffEnabled) {
+      issue(
+        "ERP_SSO_JWKS_URL",
+        "set UPSTREAM_OIDC_ISSUER_URL, or ERP_SSO_JWKS_URL / ERP_SSO_PUBLIC_KEY_PEM",
+      );
+    }
+    if (handoffEnabled && !env.ERP_SSO_ISSUER) {
+      issue("ERP_SSO_ISSUER", "required with an ERP SSO key source");
     }
     if (
+      handoffEnabled &&
       env.SSO_REQUIRE_REFERRER &&
       env.SSO_ALLOWED_REFERRER_ORIGINS.length === 0
     ) {

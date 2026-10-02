@@ -26,7 +26,9 @@ cp .env.example .env        # PowerShell: Copy-Item .env.example .env
    ```sh
    printf '%s' '<mật khẩu>' | pnpm --filter @hd-document/oidc-bridge generate:admin-password-hash
    ```
-4. Nguồn khóa của ERP: `ERP_SSO_JWKS_URL` (ERP thật / erp-fake) và/hoặc `ERP_SSO_PUBLIC_KEY_PEM` (CLI dev, xem "Đóng vai ERP").
+4. Đường đăng nhập của user ERP, ít nhất 1 trong 2:
+   - **IdP thật** (`UPSTREAM_OIDC_ISSUER_URL` + `UPSTREAM_OIDC_CLIENT_ID`, xem "Đăng nhập qua IdP thật"), hoặc
+   - **handoff JWT của ERP**: `ERP_SSO_JWKS_URL` (erp-fake) và/hoặc `ERP_SSO_PUBLIC_KEY_PEM` (CLI dev, xem "Đóng vai ERP").
 
 Rồi dựng database → migration → cả stack:
 
@@ -37,7 +39,33 @@ pnpm --filter @hd-document/app-database migrate
 cd infra && docker compose up -d --wait --build
 ```
 
-Mở <http://localhost:3000>: Outline tự chuyển sang bridge. Chưa có link SSO thì thấy form "Đăng nhập quản trị" → đăng nhập bằng `SYSTEM_ADMIN_USERNAME`. Trên Outline mới cài, user đầu tiên đăng nhập thành admin; trên Outline đã có admin trùng `SYSTEM_ADMIN_EMAIL`, đăng nhập vào chính account đó.
+Mở <http://localhost:3000>: Outline tự chuyển sang bridge. Có IdP thật thì bridge chuyển tiếp sang IdP; không thì thấy form "Đăng nhập quản trị" → đăng nhập bằng `SYSTEM_ADMIN_USERNAME`. Trên Outline mới cài, user đầu tiên đăng nhập thành admin; trên Outline đã có admin trùng `SYSTEM_ADMIN_EMAIL`, đăng nhập vào chính account đó.
+
+## Đăng nhập qua IdP thật (idp.hdwebsoft.co)
+
+Bridge làm relying party của IdP (authorization code + PKCE S256, `openid-client`). User chưa có phiên: Outline → bridge `/auth` → `/interaction/<uid>` → IdP `connect/authorize` → bridge `/upstream/callback` → tra `permission_api.erp_users` theo `sub` của IdP → về Outline đúng doc.
+
+Đăng ký ở IdP cho client `hd-dochub`:
+
+| Mục | Giá trị |
+|---|---|
+| Redirect URI | `<BRIDGE_PUBLIC_URL>/upstream/callback` — dev: `http://localhost:4001/upstream/callback` |
+| Consent Type | Implicit (first-party; Explicit sẽ hỏi consent từng user) |
+| Allowed scopes | OpenID, Profile, Email (Roles chưa dùng) |
+| Client secret | tùy chọn: có thì đặt `UPSTREAM_OIDC_CLIENT_SECRET`, bridge gửi `client_secret_basic`; trống = public client |
+
+`infra/.env`: `UPSTREAM_OIDC_ISSUER_URL=https://idp.hdwebsoft.co`, `UPSTREAM_OIDC_CLIENT_ID=hd-dochub`, rồi `docker compose up -d --build oidc-bridge`.
+
+User phải có sẵn trong `erp_users` với `erp_user_id` = `sub` của IdP (UUID), ví dụ khi dev:
+
+```sh
+pnpm --filter @hd-document/oidc-bridge dev:seed-erp-user \
+  --erp-user-id 019e9bf8-8da3-75ee-a22b-ed4b3a9da25b --email khoa.tran@hdwebsoft.dev --name "Khoa Trần Văn"
+```
+
+Chưa seed → trang 403 "chưa được cấp quyền", log `auth_audit` event `upstream_login` reason `unknown_user` kèm `subject` = `erp:<sub>` (chép `sub` từ đó để seed). Lý do khác: `idp_denied` (IdP trả `error=`, xem `idpError`), `callback_invalid` (state/nonce/chữ ký sai, code hết hạn), `transaction_missing` (cookie `hd_upstream_login` hết hạn sau 10 phút hoặc đã dùng), `idp_unavailable` (bridge không gọi được IdP; khởi động bridge không cần IdP, chỉ lúc đăng nhập).
+
+Break-glass khi IdP chết: form `system_admin` vẫn ở `<BRIDGE_PUBLIC_URL>/interaction/<uid>/admin` — mở Outline, lúc bị chuyển sang IdP thì lấy `<uid>` trên URL `/interaction/<uid>` của bridge (hoặc quay lại bằng nút Back) và thêm `/admin`.
 
 Mật khẩu database chỉ được áp dụng khi volume `postgres-data` còn trống. Đổi mật khẩu sau đó: `ALTER ROLE ... PASSWORD` trong psql, hoặc xóa volume (mất dữ liệu).
 
@@ -77,9 +105,9 @@ GRANT CONNECT ON DATABASE hd_document_apps TO bridge_app, permission_api_app;
 SQL
 ```
 
-## Đóng vai ERP khi dev (SSO 1 click)
+## Đóng vai ERP khi dev (SSO 1 click, handoff JWT)
 
-Bridge chỉ cho user ERP đã có trong `permission_api.erp_users` (phase 4 sẽ ghi bảng này qua API provision; hiện dùng CLI). Cả 3 lệnh từ chối chạy khi `NODE_ENV=production`.
+Đường thứ hai, độc lập với IdP thật (có thể bật cả hai; để trống cả `ERP_SSO_JWKS_URL` lẫn `ERP_SSO_PUBLIC_KEY_PEM` thì route `/sso` tắt). Bridge chỉ cho user ERP đã có trong `permission_api.erp_users` (phase 4 sẽ ghi bảng này qua API provision; hiện dùng CLI). Cả 3 lệnh từ chối chạy khi `NODE_ENV=production`.
 
 ```sh
 # 1 lần: sinh khóa ES256 của "ERP giả" → dán dòng ERP_SSO_PUBLIC_KEY_PEM vào infra/.env,

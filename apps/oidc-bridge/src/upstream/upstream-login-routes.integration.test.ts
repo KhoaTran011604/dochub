@@ -37,10 +37,13 @@ describe.skipIf(!integrationDatabaseAvailable)(
       return result.rows[0];
     };
 
-    /** Outline → bridge → IdP (tự đăng nhập `sub`) → URL callback của bridge. */
+    /** Outline → bridge (trang đăng nhập) → nút SSO → IdP (tự đăng nhập `sub`) → URL callback của bridge. */
     const loginAtIdp = async (browser: CookieJarTestBrowser, sub: string) => {
       idp().currentSub = sub;
-      const toIdp = await browser.get(bridge.authorizationUrl());
+      const page = await browser.get(bridge.authorizationUrl());
+      expect(page.status).toBe(200);
+      expect(page.body).toContain(`href="${new URL(page.url).pathname}/upstream"`);
+      const toIdp = await browser.get(`${page.url}/upstream`);
       expect(toIdp.url.startsWith(`${idp().issuerUrl}/auth?`)).toBe(true);
 
       // IdP là origin khác: cookie riêng, như trình duyệt thật.
@@ -124,23 +127,18 @@ describe.skipIf(!integrationDatabaseAvailable)(
       expect((await browser.get(callbackUrl)).status).toBe(400);
     });
 
-    it("keeps the system_admin form reachable at /interaction/:uid/admin, and never loops back to the IdP", async () => {
+    it("shows the SSO button together with the system_admin form, and only starts SSO for the browser owning the interaction", async () => {
       const browser = bridge.newBrowser();
-      await browser.get(bridge.authorizationUrl());
-      const interactionPath = browser.cookiePath("hd_bridge_interaction");
-      expect(interactionPath).toMatch(/^\/interaction\/.+/);
+      const page = await browser.get(bridge.authorizationUrl());
 
-      const form = await browser.get(`${bridge.baseUrl}${interactionPath}/admin`);
-      expect(form.status).toBe(200);
-      expect(form.body).toContain("Đăng nhập quản trị");
-      expect(form.body).toMatch(/name="csrf" value="[^"]+"/);
+      expect(page.status).toBe(200);
+      expect(page.body).toContain("Đăng nhập SSO");
+      expect(page.body).toMatch(/name="csrf" value="[^"]+"/);
+      expect(page.url).not.toContain(idp().issuerUrl);
 
-      // Về từ callback mà không có handoff: trang lỗi, không 302 sang IdP lần nữa.
-      const back = await browser.get(
-        `${bridge.baseUrl}${interactionPath}?upstream=1`,
-      );
-      expect(back.status).toBe(400);
-      expect(back.url).not.toContain(idp().issuerUrl);
+      const stranger = await bridge.newBrowser().get(`${page.url}/upstream`);
+      expect(stranger.status).toBe(400);
+      expect(stranger.url).not.toContain(idp().issuerUrl);
     });
 
     // Cuối cùng: tắt IdP giả, các test sau không dùng được nữa.

@@ -12,7 +12,7 @@
 - **Phụ thuộc:** `openid-client@^6.8.8`.
 - **Files mới:** `src/upstream/{upstream-oidc-client.ts, upstream-login-transaction-cookie.ts, upstream-login-routes.ts}`.
 - **Audit:** Event `upstream_login` (success / rejected: `transaction_missing`, `idp_denied`, `callback_invalid`, `idp_unavailable`, `unknown_user`, `deactivated`, `email_reserved_for_system_admin`).
-- **Break-glass:** Form `system_admin` chuyển sang `GET /interaction/:uid/admin` khi upstream configured.
+- **Trang đăng nhập:** có IdP thì hiện nút "Đăng nhập SSO" (`GET /interaction/:uid/upstream`) + form `system_admin` bên dưới (break-glass khi IdP chết).
 - **Test:** 7 integration test + 89 unit test pass.
 
 ### Đã sửa

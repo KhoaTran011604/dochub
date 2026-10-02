@@ -16,6 +16,8 @@ export interface LoginPageModel {
   outlineUrl: string;
   /** Hiện 1 thông báo chung khi đăng nhập sai (không nói sai username hay mật khẩu). */
   showError: boolean;
+  /** Có IdP thật: nút SSO đưa sang IdP; thay cho nút "Đăng nhập qua ERP" (handoff). */
+  upstreamLoginUrl?: string | undefined;
 }
 
 /** Link sang trang bắt đầu SSO của ERP; undefined khi chưa cấu hình ERP_PORTAL_URL. */
@@ -30,30 +32,46 @@ export function buildErpSsoStartUrl(
   return url.toString();
 }
 
-/** Form đăng nhập của system_admin. User ERP không có mật khẩu ở đây. */
+/** Phần dành cho user ERP: nút SSO sang IdP thật, hoặc nút/hướng dẫn handoff của ERP. */
+function renderErpUserSection(model: LoginPageModel): string {
+  if (model.upstreamLoginUrl) {
+    return `<a class="button-link" href="${escapeHtml(model.upstreamLoginUrl)}">Đăng nhập SSO (tài khoản HDWebsoft)</a>
+<p class="hint">Người dùng ERP: bấm nút trên.</p>`;
+  }
+  const ssoStartUrl = buildErpSsoStartUrl(model.erpPortalUrl, model.outlineUrl);
+  return ssoStartUrl
+    ? `<a class="button-link" href="${escapeHtml(ssoStartUrl)}">Đăng nhập qua ERP</a>
+<p class="hint">Người dùng ERP: bấm nút trên, hoặc mở tài liệu từ <a href="${escapeHtml(model.erpPortalUrl ?? "")}">ERP</a>.</p>`
+    : `<p class="hint">Người dùng ERP: mở tài liệu từ ERP.</p>`;
+}
+
+/** Trang đăng nhập: SSO cho user ERP (nếu có) + form system_admin. */
 export function renderLoginPage(model: LoginPageModel): string {
   const error = model.showError
     ? `<p class="error" role="alert">Sai thông tin đăng nhập, hoặc tài khoản đang bị tạm khóa. Thử lại sau.</p>`
     : "";
-  const ssoStartUrl = buildErpSsoStartUrl(model.erpPortalUrl, model.outlineUrl);
-  const erpSection = ssoStartUrl
-    ? `<a class="button-link" href="${escapeHtml(ssoStartUrl)}">Đăng nhập qua ERP</a>
-<p class="hint">Người dùng ERP: bấm nút trên, hoặc mở tài liệu từ <a href="${escapeHtml(model.erpPortalUrl ?? "")}">ERP</a>.</p>`
-    : `<p class="hint">Người dùng ERP: mở tài liệu từ ERP.</p>`;
-
-  return renderHtmlPage(
-    "Đăng nhập quản trị",
-    `<h1>Đăng nhập quản trị</h1>
-${error}
-<form method="post" action="/interaction/${encodeURIComponent(model.interactionUid)}/login" autocomplete="off">
+  const adminForm = `<form method="post" action="/interaction/${encodeURIComponent(model.interactionUid)}/login" autocomplete="off">
   <input type="hidden" name="csrf" value="${escapeHtml(model.csrfToken)}">
   <label for="username">Tên đăng nhập</label>
-  <input id="username" name="username" type="text" required autofocus maxlength="100" autocapitalize="none">
+  <input id="username" name="username" type="text" required maxlength="100" autocapitalize="none">
   <label for="password">Mật khẩu</label>
   <input id="password" name="password" type="password" required maxlength="1024">
   <button type="submit">Đăng nhập</button>
-</form>
-<div class="divider">hoặc</div>
-${erpSection}`,
-  );
+</form>`;
+
+  // Có IdP thật: SSO lên đầu, form admin xuống dưới (đường phụ / break-glass).
+  const sections = model.upstreamLoginUrl
+    ? [
+        `<h1>Đăng nhập</h1>${error}`,
+        renderErpUserSection(model),
+        `<div class="divider">quản trị hệ thống</div>`,
+        adminForm,
+      ]
+    : [
+        `<h1>Đăng nhập quản trị</h1>${error}`,
+        adminForm,
+        `<div class="divider">hoặc</div>`,
+        renderErpUserSection(model),
+      ];
+  return renderHtmlPage("Đăng nhập", sections.join("\n"));
 }

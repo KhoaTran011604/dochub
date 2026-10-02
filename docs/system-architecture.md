@@ -59,8 +59,8 @@ Bridge hỗ trợ **2 đường** để xác thực user:
 
 ### Break-glass admin
 
-- **System admin form:** Chuyển sang `GET /interaction/:uid/admin` (khi upstream configured).
-- **Fallback:** Nếu IdP unavailable, admin vẫn truy cập `/admin` để login local.
+- **Trang đăng nhập** `GET /interaction/:uid`: nút "Đăng nhập SSO" (→ `GET /interaction/:uid/upstream` → IdP) + form `system_admin` bên dưới. Không tự chuyển sang IdP.
+- **Fallback:** IdP chết → nút SSO trả 503, form `system_admin` vẫn dùng được.
 
 ### Gating & permissions
 

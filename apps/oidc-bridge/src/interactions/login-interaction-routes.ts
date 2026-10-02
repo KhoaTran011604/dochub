@@ -11,10 +11,7 @@ import {
 import type { LoginRateLimiter } from "../auth/login-rate-limiter-and-lockout.ts";
 import { SYSTEM_ADMIN_ACCOUNT_ID } from "../provider/find-account-and-claims.ts";
 import type { SsoHandoffRepository } from "../sso/sso-handoff-repository.ts";
-import {
-  UPSTREAM_RETURN_QUERY,
-  type RedirectToUpstreamLogin,
-} from "../upstream/upstream-login-routes.ts";
+import type { RedirectToUpstreamLogin } from "../upstream/upstream-login-routes.ts";
 import { renderErrorPage, sendHtmlPage } from "../views/html-page-layout.ts";
 import { consumeSsoHandoffCookie } from "./consume-sso-handoff-cookie.ts";
 import { renderLoginPage } from "./login-page-view.ts";
@@ -31,7 +28,7 @@ export interface LoginInteractionDependencies {
   csrfSecret: string;
   outlineOrigin: string;
   erpPortalUrl: string | undefined;
-  /** Có IdP thật: user không có handoff được đưa sang IdP; form admin chỉ còn ở /admin. */
+  /** Có IdP thật: trang đăng nhập có nút SSO → GET /interaction/:uid/upstream → IdP. */
   redirectToUpstreamLogin: RedirectToUpstreamLogin | undefined;
 }
 
@@ -80,6 +77,9 @@ export function registerLoginInteractionRoutes(
         erpPortalUrl: deps.erpPortalUrl,
         outlineUrl: deps.outlineOrigin,
         showError,
+        upstreamLoginUrl: deps.redirectToUpstreamLogin
+          ? `/interaction/${encodeURIComponent(uid)}/upstream`
+          : undefined,
       }),
       { formActionOrigins: [deps.outlineOrigin] },
     );
@@ -116,17 +116,15 @@ export function registerLoginInteractionRoutes(
 
     const accountId = await consumeSsoHandoffCookie(ctx, deps);
     if (accountId) return finishLogin(ctx, accountId);
-    if (!deps.redirectToUpstreamLogin) return showForm(ctx, uid, 200, false);
-    // Vừa từ callback IdP về mà handoff không dùng được: báo lỗi, không đi IdP lần nữa.
-    if (ctx.query[UPSTREAM_RETURN_QUERY] !== undefined) return showExpired(ctx);
-    return deps.redirectToUpstreamLogin(ctx, uid);
+    showForm(ctx, uid, 200, false);
   });
 
-  // Break-glass: form system_admin vẫn vào được khi IdP thật đang chết.
-  router.get("/interaction/:uid/admin", async (ctx) => {
+  // Nút SSO trên trang đăng nhập: bắt đầu vòng OIDC với IdP thật.
+  router.get("/interaction/:uid/upstream", async (ctx) => {
+    if (!deps.redirectToUpstreamLogin) return ctx.throw(404);
     const uid = await loadLoginInteraction(ctx);
     if (!uid) return showExpired(ctx);
-    showForm(ctx, uid, 200, false);
+    await deps.redirectToUpstreamLogin(ctx, uid);
   });
 
   router.post("/interaction/:uid/login", async (ctx) => {

@@ -23,7 +23,7 @@
 Chức năng:
 - `GET /interaction/:uid` không có handoff → 302 tới IdP `authorize` (PKCE S256, `state`, `nonce`, scope `openid profile email`).
 - `GET /upstream/callback?code&state` → đổi code, verify `id_token`, lấy `sub` → `readErpUser(sub)` → `interactionFinished({ login: { accountId: 'erp:<sub>', remember: false } })`.
-- Form `system_admin` chuyển sang `GET /interaction/:uid/admin` (link nhỏ "Đăng nhập quản trị" trên trang lỗi/redirect). POST login giữ nguyên.
+- Trang `/interaction/:uid` hiện nút "Đăng nhập SSO" (→ `/interaction/:uid/upstream` → IdP) + form `system_admin` bên dưới; không tự chuyển sang IdP (user yêu cầu 2026-10-02). POST login giữ nguyên.
 - User không có trong `erp_users` / deactivated → trang lỗi 403 hiện có + audit `upstream_login rejected`.
 - Audit: `upstream_login` success/rejected (`state_mismatch`, `idp_error`, `unknown_user`, `deactivated`).
 
@@ -109,7 +109,7 @@ Sửa:
 - `sub` không có trong `erp_users` → trang 403 có link về ERP; audit ghi `unknown_user`.
 - `state`/`nonce` sai → từ chối, không đăng nhập.
 - Không có `UPSTREAM_OIDC_*` → hành vi cũ y nguyên (test cũ pass).
-- IdP chết → `system_admin` vẫn vào được qua `/interaction/:uid/admin`.
+- IdP chết → nút SSO báo 503, form `system_admin` cùng trang vẫn vào được.
 
 ## Risk Assessment
 

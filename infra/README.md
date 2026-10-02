@@ -39,11 +39,11 @@ pnpm --filter @hd-document/app-database migrate
 cd infra && docker compose up -d --wait --build
 ```
 
-Mở <http://localhost:3000>: Outline tự chuyển sang bridge. Có IdP thật thì bridge chuyển tiếp sang IdP; không thì thấy form "Đăng nhập quản trị" → đăng nhập bằng `SYSTEM_ADMIN_USERNAME`. Trên Outline mới cài, user đầu tiên đăng nhập thành admin; trên Outline đã có admin trùng `SYSTEM_ADMIN_EMAIL`, đăng nhập vào chính account đó.
+Mở <http://localhost:3000>: Outline tự chuyển sang trang đăng nhập của bridge. Có IdP thật thì trang có nút "Đăng nhập SSO" (sang IdP) và form `system_admin` bên dưới; không thì chỉ có form "Đăng nhập quản trị" → đăng nhập bằng `SYSTEM_ADMIN_USERNAME`. Trên Outline mới cài, user đầu tiên đăng nhập thành admin; trên Outline đã có admin trùng `SYSTEM_ADMIN_EMAIL`, đăng nhập vào chính account đó.
 
 ## Đăng nhập qua IdP thật (idp.hdwebsoft.co)
 
-Bridge làm relying party của IdP (authorization code + PKCE S256, `openid-client`). User chưa có phiên: Outline → bridge `/auth` → `/interaction/<uid>` → IdP `connect/authorize` → bridge `/upstream/callback` → tra `permission_api.erp_users` theo `sub` của IdP → về Outline đúng doc.
+Bridge làm relying party của IdP (authorization code + PKCE S256, `openid-client`). User chưa có phiên: Outline → bridge `/auth` → `/interaction/<uid>` (trang đăng nhập) → nút SSO `/interaction/<uid>/upstream` → IdP `connect/authorize` → bridge `/upstream/callback` → tra `permission_api.erp_users` theo `sub` của IdP → về Outline đúng doc.
 
 Đăng ký ở IdP cho client `hd-dochub`:
 
@@ -65,7 +65,7 @@ pnpm --filter @hd-document/oidc-bridge dev:seed-erp-user \
 
 Chưa seed → trang 403 "chưa được cấp quyền", log `auth_audit` event `upstream_login` reason `unknown_user` kèm `subject` = `erp:<sub>` (chép `sub` từ đó để seed). Lý do khác: `idp_denied` (IdP trả `error=`, xem `idpError`), `callback_invalid` (state/nonce/chữ ký sai, code hết hạn), `transaction_missing` (cookie `hd_upstream_login` hết hạn sau 10 phút hoặc đã dùng), `idp_unavailable` (bridge không gọi được IdP; khởi động bridge không cần IdP, chỉ lúc đăng nhập).
 
-Break-glass khi IdP chết: form `system_admin` vẫn ở `<BRIDGE_PUBLIC_URL>/interaction/<uid>/admin` — mở Outline, lúc bị chuyển sang IdP thì lấy `<uid>` trên URL `/interaction/<uid>` của bridge (hoặc quay lại bằng nút Back) và thêm `/admin`.
+IdP chết thì nút SSO báo 503, form `system_admin` ngay dưới vẫn dùng được (break-glass).
 
 Mật khẩu database chỉ được áp dụng khi volume `postgres-data` còn trống. Đổi mật khẩu sau đó: `ALTER ROLE ... PASSWORD` trong psql, hoặc xóa volume (mất dữ liệu).
 

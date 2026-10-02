@@ -19,8 +19,6 @@ import type { UpstreamOidcClient } from "./upstream-oidc-client.ts";
 export const UPSTREAM_CALLBACK_PATH = "/upstream/callback";
 const IDP_UNAVAILABLE_MESSAGE =
   "Hệ thống đăng nhập (IdP) tạm thời không phản hồi. Thử lại sau ít phút.";
-/** Query đánh dấu lượt quay về từ callback: không có handoff thì KHÔNG đi IdP lần nữa (chống lặp). */
-export const UPSTREAM_RETURN_QUERY = "upstream";
 
 export interface UpstreamLoginDependencies {
   upstream: UpstreamOidcClient;
@@ -30,7 +28,7 @@ export interface UpstreamLoginDependencies {
   erpPortalUrl: string | undefined;
 }
 
-/** Đưa trình duyệt sang IdP; gọi từ GET /interaction/:uid khi không có handoff. */
+/** Đưa trình duyệt sang IdP; gọi từ nút SSO (GET /interaction/:uid/upstream). */
 export type RedirectToUpstreamLogin = (
   ctx: Context,
   interactionUid: string,
@@ -64,7 +62,8 @@ export function createRedirectToUpstreamLogin(
  * GET /upstream/callback?code&state: IdP trả user về. Kết quả thành công được
  * ghi thành handoff 1 lần (cùng bảng/cookie với /sso) rồi quay lại
  * /interaction/:uid — nơi cookie interaction của provider mới gửi tới — để
- * hoàn tất đăng nhập bằng đường có sẵn.
+ * hoàn tất đăng nhập bằng đường có sẵn. Handoff không dùng được thì trang
+ * đăng nhập hiện lại (không tự quay sang IdP → không lặp).
  */
 export function registerUpstreamCallbackRoute(
   router: Router,
@@ -146,8 +145,6 @@ export function registerUpstreamCallbackRoute(
       subject,
       ...requestInfo,
     });
-    ctx.redirect(
-      `/interaction/${encodeURIComponent(pending.interactionUid)}?${UPSTREAM_RETURN_QUERY}=1`,
-    );
+    ctx.redirect(`/interaction/${encodeURIComponent(pending.interactionUid)}`);
   });
 }

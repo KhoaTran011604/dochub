@@ -1,5 +1,24 @@
 # Nhật ký dự án
 
+## [2026-10-02] Nút "Đăng nhập qua ERP" trên form login của bridge
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/oidc-bridge` (login page), `infra/README.md`, erp-fake (repo riêng)
+
+### Đã thêm
+
+- Form "Đăng nhập quản trị" có thêm nút **Đăng nhập qua ERP** (chỉ hiện khi có `ERP_PORTAL_URL`) → `<ERP_PORTAL_URL>/sso/start?returnTo=<OUTLINE_URL>`. ERP render trang trung gian rồi `window.location` sang `/sso` của bridge để Referer đúng origin ERP.
+- `buildErpSsoStartUrl` + unit test `login-page-view.test.ts`.
+- erp-fake: `GET /sso/start` → `public/sso-start.html` (tự ký handoff nếu đã đăng nhập ERP, chưa thì đưa về login rồi quay lại).
+
+### Đã sửa (erp-fake)
+
+- `GET /api/projects/:id/documents` nằm nhầm trong router mount ở `/api/documents` → request rơi vào fallback `index.html`, frontend báo `Unexpected token '<'`. Chuyển handler sang `routes/projects.js`.
+
+### Ghi nhận vận hành
+
+- Seed user erp-fake phải dùng `_id` Mongo làm `--erp-user-id` (= `sub` trong JWT); id tự đặt → `unknown_user` → trang "chưa được cấp quyền".
+
 ## [2026-10-01] Đổi phạm vi: không tự viết UI, SSO làm trước
 
 **Status:** Kế hoạch đã cập nhật, chưa có thay đổi code  

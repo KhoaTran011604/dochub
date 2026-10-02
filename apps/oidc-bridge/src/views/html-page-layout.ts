@@ -23,7 +23,10 @@ const STYLE = `
   input{box-sizing:border-box;width:100%;padding:9px 10px;border:1px solid #c5ccd3;border-radius:6px;font-size:14px}
   button{margin-top:20px;width:100%;padding:10px;border:0;border-radius:6px;background:#1d4ed8;color:#fff;font-size:14px;cursor:pointer}
   .error{color:#b42318}
-  .hint{color:#52606d;border-top:1px solid #e4e7eb;margin-top:22px;padding-top:14px}
+  .hint{color:#52606d;margin-top:12px}
+  .divider{display:flex;align-items:center;gap:10px;color:#9aa5b1;font-size:12px;margin:22px 0 14px}
+  .divider::before,.divider::after{content:"";flex:1;border-top:1px solid #e4e7eb}
+  .button-link{display:block;box-sizing:border-box;width:100%;padding:10px;border:1px solid #1d4ed8;border-radius:6px;background:#fff;color:#1d4ed8;font-size:14px;text-align:center;text-decoration:none}
 `;
 
 /** Khung HTML chung cho mọi trang bridge tự render. `bodyHtml` phải đã escape. */

@@ -97,7 +97,9 @@ pnpm --silent --filter @hd-document/oidc-bridge dev:sign-sso-link \
 
 Link `/sso` chỉ được nhận khi mở **từ một trang của ERP** (header `Referer` thuộc `SSO_ALLOWED_REFERRER_ORIGINS`). Dán thẳng link vào thanh địa chỉ sẽ bị từ chối; khi thử tay, đặt `SSO_REQUIRE_REFERRER=false` rồi `docker compose up -d oidc-bridge`.
 
-Dùng với **erp-fake**: `ERP_SSO_ISSUER=erp-fake`, `ERP_SSO_JWKS_URL=http://host.docker.internal:4000/.well-known/jwks.json`, và seed từng user của erp-fake với `--erp-user-id` = `_id` của user đó (chính là `sub` trong JWT; xem dòng `auth_audit` trong log bridge khi bị từ chối `unknown_user`).
+Dùng với **erp-fake**: `ERP_SSO_ISSUER=erp-fake`, `ERP_SSO_JWKS_URL=http://host.docker.internal:4000/.well-known/jwks.json`, và seed từng user của erp-fake với `--erp-user-id` = `_id` của user đó (chính là `sub` trong JWT; xem dòng `auth_audit` trong log bridge khi bị từ chối `unknown_user`). **Không** tự đặt id kiểu `bob-it`: bridge tra đúng chuỗi `sub`.
+
+Nút **"Đăng nhập qua ERP"** trên form login của bridge (hiện khi có `ERP_PORTAL_URL`) đưa user tới `<ERP_PORTAL_URL>/sso/start?returnTo=<OUTLINE_URL>`. ERP phải render 1 trang rồi điều hướng bằng `window.location` sang `/sso` của bridge (erp-fake: `public/sso-start.html`); ERP trả 302 thẳng thì Referer vẫn là bridge → bị từ chối `referrer_not_allowed`.
 
 Vì sao một lần SSO bị từ chối: `docker compose logs oidc-bridge | grep auth_audit` (hoặc bảng `bridge.auth_audit_log`). Lý do thường gặp: `referrer_missing` / `referrer_not_allowed`, `token_signature_invalid` (sai khóa / sai `ERP_SSO_ISSUER`), `token_expired` (lệch đồng hồ > 30 giây), `token_replayed`, `unknown_user`, `deactivated`.
 

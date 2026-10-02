@@ -72,6 +72,7 @@ export function registerLoginInteractionRoutes(
         interactionUid: uid,
         csrfToken: csrfTokenFor(uid),
         erpPortalUrl: deps.erpPortalUrl,
+        outlineUrl: deps.outlineOrigin,
         showError,
       }),
       { formActionOrigins: [deps.outlineOrigin] },

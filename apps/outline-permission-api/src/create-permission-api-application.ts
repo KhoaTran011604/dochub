@@ -30,7 +30,7 @@ import { registerUsersRoutes } from "./users/users-routes.ts";
  */
 export function createPermissionApiApplication(config: EnvironmentConfig, pool: pg.Pool): Koa {
   const outlineClient = createOutlineHttpClient({
-    baseUrl: config.OUTLINE_URL,
+    baseUrl: config.OUTLINE_INTERNAL_URL ?? config.OUTLINE_URL,
     token: config.OUTLINE_ADMIN_API_TOKEN,
   });
 

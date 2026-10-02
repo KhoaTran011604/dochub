@@ -107,6 +107,13 @@ const environmentSchema = z
       .pipe(z.array(httpUrl.transform((value) => new URL(value).origin))),
 
     PERMISSION_API_PUBLIC_URL: optional(httpUrl),
+    /**
+     * Tự tạo user ERP ở lần SSO đầu qua `PUT /users/{sub}` của permission API.
+     * Bật khi có SERVICE_KEY (scope `users:write`); INTERNAL_URL là URL bridge
+     * gọi được (trong compose: http://outline-permission-api:4100).
+     */
+    PERMISSION_API_INTERNAL_URL: optional(httpUrl),
+    PERMISSION_API_SERVICE_KEY: optional(z.string().min(16)),
     ERP_PORTAL_URL: optional(httpUrl),
   })
   .superRefine((env, context) => {
@@ -116,6 +123,9 @@ const environmentSchema = z
 
     if (env.UPSTREAM_OIDC_ISSUER_URL && !env.UPSTREAM_OIDC_CLIENT_ID) {
       issue("UPSTREAM_OIDC_CLIENT_ID", "required with UPSTREAM_OIDC_ISSUER_URL");
+    }
+    if (env.PERMISSION_API_SERVICE_KEY && !env.PERMISSION_API_INTERNAL_URL) {
+      issue("PERMISSION_API_INTERNAL_URL", "required with PERMISSION_API_SERVICE_KEY");
     }
     // IdP HTTP chỉ cho test/dev local (openid-client phải tắt kiểm HTTPS).
     if (

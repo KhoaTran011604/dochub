@@ -1,5 +1,36 @@
 # Nhật ký dự án
 
+## [2026-10-02] Bridge tự tạo user ERP ở lần SSO đầu; permission-api chạy trong compose
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/oidc-bridge/src/{accounts,upstream,config}`, `apps/outline-permission-api` (Dockerfile, config), `packages/outline-api-client`, `infra/`
+
+### Đã thêm
+
+- **Auto-provision:** user IdP chưa có trong `erp_users` → bridge gọi `PUT /users/{sub}` của permission API (service key scope `users:write`) với email/tên từ id_token, thiếu thì userinfo; rồi tra lại và đăng nhập. `inviteRequired` của Outline giữ nguyên vì đi đúng đường invite của API. Env bridge: `PERMISSION_API_SERVICE_KEY` (bật), `PERMISSION_API_INTERNAL_URL` (compose mặc định `http://outline-permission-api:4100`).
+- **Audit:** `upstream_login` success có `autoProvisioned: true`; rejected thêm `profile_unusable`, `provision_rejected` (+`code`), `provision_unavailable`.
+- **Test:** `fake-permission-api-server.ts`; harness nhận `{ autoProvision: true }`; 2 test tích hợp mới (provision thành công, API từ chối).
+
+### Đã sửa
+
+- `outline-permission-api` chạy được trong compose: `OUTLINE_INTERNAL_URL` (gọi Outline qua tên service), `@hd-document/outline-api-client` chuyển sang `dependencies` và được build ra `dist` trong Dockerfile (Node không strip type `.ts` trong `node_modules`).
+
+## [2026-10-02] Bật public sharing: toggle "Publish to web" cho tài liệu
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `packages/outline-workspace-setup/src/desired-workspace-settings.ts`, test, docs  
+**Mức độ:** Config / sửa hành vi
+
+### Đã sửa
+
+- `sharing: false` → `true` trong desired team settings. Trước đây script phase 3 tắt public sharing ở cấp workspace → Outline ẩn toggle "Publish to web" ở mọi tài liệu dù `collections.sharing = true`.
+- Chạy lại `apply-workspace-settings` để áp lên Outline đang chạy.
+
+### Ghi chú
+
+- Outline không có "publish cả collection": nút Share trên trang collection chỉ quản lý member. Publish là theo từng tài liệu (Share của tài liệu → "Publish to web" + "Include nested documents" để trang con đi kèm).
+- Tài liệu chưa bật toggle vẫn private như cũ.
+
 ## [2026-10-02] Bridge đăng nhập qua IdP thật (upstream OIDC)
 
 **Status:** ✓ Hoàn thành  

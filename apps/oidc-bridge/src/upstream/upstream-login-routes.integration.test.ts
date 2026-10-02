@@ -19,7 +19,10 @@ describe.skipIf(!integrationDatabaseAvailable)(
     };
 
     beforeAll(async () => {
-      bridge = await startBridgeTestHarness({ upstream: true });
+      bridge = await startBridgeTestHarness({
+        upstream: true,
+        autoProvision: true,
+      });
     });
     afterAll(async () => {
       await bridge?.stop();
@@ -85,9 +88,37 @@ describe.skipIf(!integrationDatabaseAvailable)(
       });
     });
 
-    it("refuses a user the IdP knows but erp_users does not", async () => {
+    it("provisions a user the IdP knows but erp_users does not, through the permission API, then signs them in", async () => {
+      const sub = `${bridge.runId}-first-login`;
       const browser = bridge.newBrowser();
-      const { callbackUrl } = await loginAtIdp(browser, "not-provisioned");
+      const { callbackUrl } = await loginAtIdp(browser, sub);
+
+      const login = await browser.get(callbackUrl);
+
+      expect(login.url).toContain(`${OUTLINE_URL}/auth/oidc.callback?code=`);
+      // Email/tên lấy từ id_token của IdP giả, đi qua PUT /users/{sub}.
+      expect(bridge.fakePermissionApi?.received.at(-1)).toEqual({
+        erpUserId: sub,
+        email: `${sub}@idp.test`,
+        name: `IdP ${sub}`,
+      });
+      expect(await bridge.exchangeCodeForClaims(login.url)).toMatchObject({
+        sub: `erp:${sub}`,
+        email: `${sub}@idp.test`,
+      });
+      expect(await lastUpstreamAudit()).toMatchObject({
+        outcome: "success",
+        subject: `erp:${sub}`,
+      });
+    });
+
+    it("refuses an unknown user when the permission API rejects the provision", async () => {
+      const sub = `${bridge.runId}-rejected`;
+      const browser = bridge.newBrowser();
+      const { callbackUrl } = await loginAtIdp(browser, sub);
+      const api = bridge.fakePermissionApi;
+      if (!api) throw new Error("harness started without permission API");
+      api.nextError = { status: 403, code: "SYSTEM_ADMIN_EMAIL_RESERVED" };
 
       const response = await browser.get(callbackUrl);
 
@@ -95,7 +126,7 @@ describe.skipIf(!integrationDatabaseAvailable)(
       expect(response.body).toContain("chưa được cấp quyền");
       expect(await lastUpstreamAudit()).toMatchObject({
         outcome: "rejected",
-        reason: "unknown_user",
+        reason: "provision_rejected",
       });
     });
 

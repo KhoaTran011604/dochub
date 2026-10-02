@@ -83,6 +83,18 @@ describe("loadEnvironmentConfig", () => {
     );
   });
 
+  it("requires the permission API URL when auto-provisioning is switched on by a service key", () => {
+    expect(() =>
+      load({ PERMISSION_API_SERVICE_KEY: "hdk_fake0000000000_0123456789abcdef" }),
+    ).toThrow(/PERMISSION_API_INTERNAL_URL/);
+    expect(
+      load({
+        PERMISSION_API_SERVICE_KEY: "hdk_fake0000000000_0123456789abcdef",
+        PERMISSION_API_INTERNAL_URL: "http://outline-permission-api:4100/",
+      }).PERMISSION_API_INTERNAL_URL,
+    ).toBe("http://outline-permission-api:4100");
+  });
+
   it("refuses an http upstream issuer in production", () => {
     const upstream = {
       UPSTREAM_OIDC_ISSUER_URL: "http://idp.example.com",

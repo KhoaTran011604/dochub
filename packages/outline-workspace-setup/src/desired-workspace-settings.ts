@@ -35,7 +35,10 @@ export function loadDesiredWorkspaceSettings(
   return {
     name: env.WORKSPACE_NAME,
     ...(env.WORKSPACE_LOGO_URL ? { avatarUrl: env.WORKSPACE_LOGO_URL } : {}),
-    sharing: false,
+    // Bật public sharing ở cấp workspace để toggle "Publish to web" xuất hiện trong
+    // Share popover của tài liệu (kèm "Include nested documents" cho trang con).
+    // Tắt ở đây = Outline ẩn toggle ở mọi collection/tài liệu, dù collection.sharing = true.
+    sharing: true,
     guestSignin: false,
     passkeysEnabled: false,
     memberCollectionCreate: false,

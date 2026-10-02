@@ -24,8 +24,15 @@ export type UpstreamLoginRejection =
   /** Không tới được IdP (discovery / token endpoint). */
   | "idp_unavailable";
 
+/** Hồ sơ trong id_token của IdP (chỉ dùng để tự provision user lần đầu). */
+export interface UpstreamUserProfile {
+  email: string | undefined;
+  emailVerified: boolean | undefined;
+  name: string | undefined;
+}
+
 export type UpstreamLoginCompletion =
-  | { ok: true; sub: string }
+  | { ok: true; sub: string; profile: UpstreamUserProfile }
   | { ok: false; reason: UpstreamLoginRejection; detail?: string };
 
 export interface UpstreamOidcClient {
@@ -112,13 +119,37 @@ export function createUpstreamOidcClient(
           expectedNonce: transaction.nonce,
           idTokenExpected: true,
         });
-        const sub = tokens.claims()?.sub;
+        const claims = tokens.claims();
+        const sub = claims?.sub;
         if (!sub) return { ok: false, reason: "callback_invalid" };
-        return { ok: true, sub };
+        let profile = readUserProfile(claims);
+        // Một số IdP chỉ trả email/name ở userinfo, không nằm trong id_token.
+        if (!profile.email) {
+          profile = readUserProfile(
+            await oidc.fetchUserInfo(config, tokens.access_token, sub),
+          );
+        }
+        return { ok: true, sub, profile };
       } catch (error) {
         return { ok: false, ...classifyCallbackError(error) };
       }
     },
+  };
+}
+
+/** Chỉ lấy claim đúng kiểu; IdP thiếu claim thì để undefined, không đoán. */
+function readUserProfile(
+  claims: oidc.IDToken | oidc.UserInfoResponse,
+): UpstreamUserProfile {
+  const text = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : undefined;
+  return {
+    email: text(claims.email),
+    emailVerified:
+      typeof claims.email_verified === "boolean"
+        ? claims.email_verified
+        : undefined,
+    name: text(claims.name),
   };
 }
 

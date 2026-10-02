@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type Router from "@koa/router";
 import type { Context } from "koa";
-import type { ErpUserDirectoryReader } from "../accounts/erp-user-directory-reader.ts";
+import type { ErpUserAutoProvisioner } from "../accounts/erp-user-auto-provisioner.ts";
+import type {
+  ErpUserDirectoryReader,
+  ErpUserLookup,
+} from "../accounts/erp-user-directory-reader.ts";
 import type { AuthAuditLogger } from "../audit/auth-audit-logger.ts";
 import { erpAccountId } from "../provider/find-account-and-claims.ts";
 import {
@@ -14,18 +18,71 @@ import {
   setPendingUpstreamLogin,
   takePendingUpstreamLogin,
 } from "./upstream-login-transaction-cookie.ts";
-import type { UpstreamOidcClient } from "./upstream-oidc-client.ts";
+import type {
+  UpstreamOidcClient,
+  UpstreamUserProfile,
+} from "./upstream-oidc-client.ts";
 
 export const UPSTREAM_CALLBACK_PATH = "/upstream/callback";
 const IDP_UNAVAILABLE_MESSAGE =
   "Hệ thống đăng nhập (IdP) tạm thời không phản hồi. Thử lại sau ít phút.";
+const NOT_PROVISIONED_MESSAGE =
+  "Tài khoản của bạn chưa được cấp quyền vào hệ thống tài liệu.";
 
 export interface UpstreamLoginDependencies {
   upstream: UpstreamOidcClient;
   handoffs: SsoHandoffRepository;
   readErpUser: ErpUserDirectoryReader;
+  /** Có = user IdP chưa có trong `erp_users` được tự tạo ở lần đăng nhập đầu. */
+  autoProvision: ErpUserAutoProvisioner | undefined;
   audit: AuthAuditLogger;
   erpPortalUrl: string | undefined;
+}
+
+type ProvisionOutcome =
+  | { ok: true; lookup: ErpUserLookup }
+  | { ok: false; status: number; message: string; reason: string; detail?: string };
+
+/**
+ * User IdP biết nhưng `erp_users` chưa có: tạo qua permission API bằng email/tên
+ * trong id_token (IdP ký, không phải input từ trình duyệt), rồi tra lại. Chỉ
+ * nhận email đã verify: Outline khớp account theo email.
+ */
+async function provisionFirstLogin(
+  deps: UpstreamLoginDependencies,
+  sub: string,
+  profile: UpstreamUserProfile,
+): Promise<ProvisionOutcome> {
+  if (!deps.autoProvision) {
+    return { ok: false, status: 403, message: NOT_PROVISIONED_MESSAGE, reason: "unknown_user" };
+  }
+  if (!profile.email || profile.emailVerified === false) {
+    return {
+      ok: false,
+      status: 403,
+      message: NOT_PROVISIONED_MESSAGE,
+      reason: "profile_unusable",
+      detail: profile.email ? "email_unverified" : "email_missing",
+    };
+  }
+  const provisioned = await deps.autoProvision({
+    erpUserId: sub,
+    email: profile.email,
+    name: profile.name ?? profile.email,
+  });
+  if (!provisioned.ok) {
+    const unavailable = provisioned.reason === "provision_unavailable";
+    return {
+      ok: false,
+      status: unavailable ? 503 : 403,
+      message: unavailable
+        ? "Hệ thống cấp quyền tạm thời không phản hồi. Thử lại sau ít phút."
+        : NOT_PROVISIONED_MESSAGE,
+      reason: provisioned.reason,
+      detail: provisioned.detail,
+    };
+  }
+  return { ok: true, lookup: await deps.readErpUser(sub) };
 }
 
 /** Đưa trình duyệt sang IdP; gọi từ nút SSO (GET /interaction/:uid/upstream). */
@@ -118,14 +175,20 @@ export function registerUpstreamCallbackRoute(
     }
 
     const subject = erpAccountId(completion.sub);
-    const lookup = await deps.readErpUser(completion.sub);
+    let lookup = await deps.readErpUser(completion.sub);
+    let provisionedNow = false;
+    if (!lookup.found && lookup.reason === "unknown_user") {
+      const outcome = await provisionFirstLogin(deps, completion.sub, completion.profile);
+      if (!outcome.ok) {
+        return reject(outcome.status, outcome.message, outcome.reason, subject, {
+          code: outcome.detail,
+        });
+      }
+      lookup = outcome.lookup;
+      provisionedNow = true;
+    }
     if (!lookup.found) {
-      return reject(
-        403,
-        "Tài khoản của bạn chưa được cấp quyền vào hệ thống tài liệu.",
-        lookup.reason,
-        subject,
-      );
+      return reject(403, NOT_PROVISIONED_MESSAGE, lookup.reason, subject);
     }
 
     const handoff = await deps.handoffs.create({
@@ -144,6 +207,7 @@ export function registerUpstreamCallbackRoute(
       outcome: "success",
       subject,
       ...requestInfo,
+      detail: provisionedNow ? { autoProvisioned: true } : {},
     });
     ctx.redirect(`/interaction/${encodeURIComponent(pending.interactionUid)}`);
   });

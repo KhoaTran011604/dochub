@@ -75,6 +75,9 @@ importers:
 
   apps/outline-permission-api:
     dependencies:
+      '@hd-document/outline-api-client':
+        specifier: workspace:*
+        version: link:../../packages/outline-api-client
       '@koa/router':
         specifier: ^15.7.0
         version: 15.7.0(koa@3.2.1)
@@ -91,9 +94,6 @@ importers:
       '@hd-document/app-database':
         specifier: workspace:*
         version: link:../../packages/app-database
-      '@hd-document/outline-api-client':
-        specifier: workspace:*
-        version: link:../../packages/outline-api-client
       '@types/koa':
         specifier: ^3.0.3
         version: 3.0.3

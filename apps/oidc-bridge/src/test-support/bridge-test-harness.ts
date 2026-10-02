@@ -17,6 +17,11 @@ import {
 import { createBridgeApplication } from "../create-bridge-application.ts";
 import { CookieJarTestBrowser } from "./cookie-jar-test-browser.ts";
 import {
+  FAKE_PERMISSION_API_SERVICE_KEY,
+  startFakePermissionApi,
+  type FakePermissionApi,
+} from "./fake-permission-api-server.ts";
+import {
   FAKE_UPSTREAM_CLIENT_ID,
   startFakeUpstreamIdp,
   type FakeUpstreamIdp,
@@ -44,6 +49,10 @@ export interface BridgeTestHarness extends OutlineOidcClientSimulator {
   ownerPool: pg.Pool;
   /** Chỉ có khi dựng với `{ upstream: true }`. */
   fakeIdp: FakeUpstreamIdp | undefined;
+  /** Chỉ có khi dựng với `{ autoProvision: true }` (cần `upstream`). */
+  fakePermissionApi: FakePermissionApi | undefined;
+  /** Prefix của mọi erp_user_id tạo trong lần chạy này (được dọn ở `stop`). */
+  runId: string;
   newBrowser(): CookieJarTestBrowser;
   seedErpUser(overrides?: { email?: string; status?: string }): Promise<string>;
   signHandoffToken(
@@ -57,7 +66,7 @@ export interface BridgeTestHarness extends OutlineOidcClientSimulator {
 }
 
 export async function startBridgeTestHarness(
-  options: { upstream?: boolean } = {},
+  options: { upstream?: boolean; autoProvision?: boolean } = {},
 ): Promise<BridgeTestHarness> {
   const runId = `it-${randomBytes(6).toString("hex")}`;
   const erpKeys = await generateKeyPair("ES256", { extractable: true });
@@ -67,11 +76,20 @@ export async function startBridgeTestHarness(
   const fakeIdp = options.upstream
     ? await startFakeUpstreamIdp(`${baseUrl}/upstream/callback`)
     : undefined;
+  const ownerPool = createPostgresPool(process.env.APP_DATABASE_URL);
+  const fakePermissionApi =
+    options.upstream && options.autoProvision
+      ? await startFakePermissionApi(ownerPool)
+      : undefined;
 
   const config = loadEnvironmentConfig(
     validBridgeEnvironment({
       UPSTREAM_OIDC_ISSUER_URL: fakeIdp?.issuerUrl,
       UPSTREAM_OIDC_CLIENT_ID: fakeIdp ? FAKE_UPSTREAM_CLIENT_ID : undefined,
+      PERMISSION_API_INTERNAL_URL: fakePermissionApi?.baseUrl,
+      PERMISSION_API_SERVICE_KEY: fakePermissionApi
+        ? FAKE_PERMISSION_API_SERVICE_KEY
+        : undefined,
       PORT: String(port),
       BRIDGE_PUBLIC_URL: baseUrl,
       BRIDGE_DATABASE_URL: process.env.BRIDGE_DATABASE_URL,
@@ -95,7 +113,6 @@ export async function startBridgeTestHarness(
     }),
   );
 
-  const ownerPool = createPostgresPool(process.env.APP_DATABASE_URL);
   const bridgePool = createPostgresPool(config.BRIDGE_DATABASE_URL);
   let server: Server;
   const listen = async () => {
@@ -115,6 +132,8 @@ export async function startBridgeTestHarness(
     baseUrl,
     ownerPool,
     fakeIdp,
+    fakePermissionApi,
+    runId,
     newBrowser: () => new CookieJarTestBrowser(baseUrl),
 
     async seedErpUser(overrides = {}) {
@@ -160,6 +179,7 @@ export async function startBridgeTestHarness(
     async stop() {
       await close();
       await fakeIdp?.stop();
+      await fakePermissionApi?.stop();
       // Chỉ dọn dữ liệu của lần chạy này (database dev dùng chung).
       await ownerPool.query(
         `DELETE FROM bridge.sso_handoffs WHERE erp_user_id LIKE $1`,

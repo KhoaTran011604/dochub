@@ -17,6 +17,11 @@ COPY apps/outline-permission-api/src apps/outline-permission-api/src
 COPY packages/app-database packages/app-database
 COPY packages/outline-api-client packages/outline-api-client
 RUN pnpm --filter @hd-document/outline-permission-api build
+# Package workspace export src/*.ts cho dev; Node từ chối strip type trong
+# node_modules → build ra dist và trỏ exports sang đó trước khi deploy.
+# Làm SAU khi build app: tsc của app lấy type từ src (dist không có .d.ts).
+RUN pnpm --filter @hd-document/outline-api-client build \
+  && node --input-type=commonjs -e 'const f="packages/outline-api-client/package.json";const p=require("./"+f);p.exports={".":"./dist/index.js"};require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
 # Gom dist + node_modules production (không symlink ra ngoài) vào /out.
 RUN pnpm --filter @hd-document/outline-permission-api deploy --prod --legacy /out
 

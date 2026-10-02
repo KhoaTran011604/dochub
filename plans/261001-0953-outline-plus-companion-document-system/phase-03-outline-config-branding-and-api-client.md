@@ -64,7 +64,7 @@ Team settings mong muốn:
 | Logo | `avatarUrl` | URL từ env | đã xác nhận field; URL ngoài: kiểm khi làm |
 | Logo ở trang đăng nhập | `preferences.publicBranding` | `true` | đã xác nhận |
 | Màu nhấn | `preferences.customTheme.accent`, `.accentText` | từ env | đã xác nhận |
-| Tắt public sharing | `sharing` | `false` | đã xác nhận |
+| Bật public sharing (toggle "Publish to web" + "Include nested documents" theo từng tài liệu; tắt = Outline ẩn toggle ở mọi collection) | `sharing` | `true` (đổi 2026-10-02, trước là `false`) | đã xác nhận |
 | Tắt đăng nhập email | `guestSignin` | `false` | đã xác nhận |
 | Tắt passkey | `passkeysEnabled` | `false` | đã xác nhận |
 | Chỉ user đã provision mới vào được | `inviteRequired` | `true` | đã xác nhận |

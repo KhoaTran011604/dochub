@@ -7,7 +7,7 @@ describe("loadDesiredWorkspaceSettings", () => {
 
     expect(desired).toEqual({
       name: "HD Document",
-      sharing: false,
+      sharing: true,
       guestSignin: false,
       passkeysEnabled: false,
       memberCollectionCreate: false,

@@ -1,0 +1,14 @@
+{
+  // Build cho image runtime của app dùng package này (Node không strip type
+  // cho file .ts trong node_modules): chỉ src, không test → dist/*.js.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "rewriteRelativeImportExtensions": true,
+    "sourceMap": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

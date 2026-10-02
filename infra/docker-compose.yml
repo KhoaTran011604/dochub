@@ -158,6 +158,9 @@ services:
       SSO_REQUIRE_REFERRER: ${SSO_REQUIRE_REFERRER:-true}
       SSO_ALLOWED_REFERRER_ORIGINS: ${SSO_ALLOWED_REFERRER_ORIGINS:-}
       PERMISSION_API_PUBLIC_URL: ${PERMISSION_API_PUBLIC_URL:-}
+      # Tự tạo user ERP ở lần SSO đầu qua permission API (bật khi có SERVICE_KEY).
+      PERMISSION_API_INTERNAL_URL: ${PERMISSION_API_INTERNAL_URL:-http://outline-permission-api:4100}
+      PERMISSION_API_SERVICE_KEY: ${PERMISSION_API_SERVICE_KEY:-}
       ERP_PORTAL_URL: ${ERP_PORTAL_URL:-}
     healthcheck:
       test:
@@ -191,6 +194,8 @@ services:
       PERMISSION_API_DATABASE_URL: postgres://permission_api_app:${PERMISSION_API_DB_PASSWORD}@postgres:5432/hd_document_apps
       TRUST_PROXY: ${PERMISSION_API_TRUST_PROXY:-false}
       OUTLINE_URL: ${OUTLINE_URL}
+      # Gọi Outline API qua tên service trong mạng compose, không qua URL public.
+      OUTLINE_INTERNAL_URL: ${OUTLINE_INTERNAL_URL:-http://outline:3000}
       OUTLINE_ADMIN_API_TOKEN: ${OUTLINE_ADMIN_API_TOKEN:?set OUTLINE_ADMIN_API_TOKEN in infra/.env}
       SYSTEM_ADMIN_EMAIL: ${SYSTEM_ADMIN_EMAIL}
     healthcheck:

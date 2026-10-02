@@ -1,6 +1,7 @@
 import Router from "@koa/router";
 import type Provider from "oidc-provider";
 import type pg from "pg";
+import { createPermissionApiAutoProvisioner } from "./accounts/erp-user-auto-provisioner.ts";
 import { createErpUserDirectoryReader } from "./accounts/erp-user-directory-reader.ts";
 import { createAuthAuditLogger } from "./audit/auth-audit-logger.ts";
 import { createSystemAdminAuthenticator } from "./auth/local-system-admin-authenticator.ts";
@@ -114,6 +115,14 @@ export async function createBridgeApplication(
       }),
       handoffs,
       readErpUser,
+      // Config bảo đảm có INTERNAL_URL khi có SERVICE_KEY.
+      autoProvision:
+        config.PERMISSION_API_SERVICE_KEY && config.PERMISSION_API_INTERNAL_URL
+          ? createPermissionApiAutoProvisioner({
+              baseUrl: config.PERMISSION_API_INTERNAL_URL,
+              serviceKey: config.PERMISSION_API_SERVICE_KEY,
+            })
+          : undefined,
       audit,
       erpPortalUrl: config.ERP_PORTAL_URL,
     };

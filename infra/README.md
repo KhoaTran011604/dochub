@@ -56,14 +56,12 @@ Bridge làm relying party của IdP (authorization code + PKCE S256, `openid-cli
 
 `infra/.env`: `UPSTREAM_OIDC_ISSUER_URL=https://idp.hdwebsoft.co`, `UPSTREAM_OIDC_CLIENT_ID=hd-dochub`, rồi `docker compose up -d --build oidc-bridge`.
 
-User phải có sẵn trong `erp_users` với `erp_user_id` = `sub` của IdP (UUID), ví dụ khi dev:
+User phải có trong `erp_users` với `erp_user_id` = `sub` của IdP (UUID). Hai cách:
 
-```sh
-pnpm --filter @hd-document/oidc-bridge dev:seed-erp-user \
-  --erp-user-id 019e9bf8-8da3-75ee-a22b-ed4b3a9da25b --email khoa.tran@hdwebsoft.dev --name "Khoa Trần Văn"
-```
+- **Tự tạo ở lần SSO đầu** (mặc định khi có `PERMISSION_API_SERVICE_KEY` trong `infra/.env`): bridge lấy email/tên từ IdP (id_token, thiếu thì userinfo) rồi gọi `PUT /users/{sub}` của permission API bằng service key đó → ghi `erp_users` + invite vào Outline, user vào thẳng. Tạo key: `pnpm --filter @hd-document/outline-permission-api manage-service-client create oidc-bridge --scopes users:write --project-keys "*"`. Audit success có `autoProvisioned: true`.
+- **ERP provision trước** (`PUT /users/{sub}`), hoặc khi dev: `pnpm --filter @hd-document/oidc-bridge dev:seed-erp-user --erp-user-id <sub> --email <email> --name "<tên>"`.
 
-Chưa seed → trang 403 "chưa được cấp quyền", log `auth_audit` event `upstream_login` reason `unknown_user` kèm `subject` = `erp:<sub>` (chép `sub` từ đó để seed). Lý do khác: `idp_denied` (IdP trả `error=`, xem `idpError`), `callback_invalid` (state/nonce/chữ ký sai, code hết hạn), `transaction_missing` (cookie `hd_upstream_login` hết hạn sau 10 phút hoặc đã dùng), `idp_unavailable` (bridge không gọi được IdP; khởi động bridge không cần IdP, chỉ lúc đăng nhập).
+Không bật auto-provision mà chưa có user → trang 403 "chưa được cấp quyền", log `auth_audit` event `upstream_login` reason `unknown_user` kèm `subject` = `erp:<sub>` (chép `sub` từ đó để seed). Auto-provision thất bại: `profile_unusable` (IdP không trả email hoặc `email_verified=false`), `provision_rejected` (permission API trả 4xx, `code` kèm theo, ví dụ `SYSTEM_ADMIN_EMAIL_RESERVED`, `ERP_USER_ID_NOT_UUID`), `provision_unavailable` (503, không gọi được permission API). Lý do khác: `idp_denied` (IdP trả `error=`, xem `idpError`), `callback_invalid` (state/nonce/chữ ký sai, code hết hạn), `transaction_missing` (cookie `hd_upstream_login` hết hạn sau 10 phút hoặc đã dùng), `idp_unavailable` (bridge không gọi được IdP; khởi động bridge không cần IdP, chỉ lúc đăng nhập).
 
 IdP chết thì nút SSO báo 503, form `system_admin` ngay dưới vẫn dùng được (break-glass).
 
@@ -107,7 +105,7 @@ SQL
 
 ## Cấu hình + branding Outline (packages/outline-workspace-setup)
 
-Áp tên/logo/màu + các toggle bảo mật (tắt public sharing, tắt đăng nhập email/passkey,
+Áp tên/logo/màu + các toggle bảo mật (bật public sharing để tài liệu có "Publish to web", tắt đăng nhập email/passkey,
 member không mời người/tạo collection/tạo API key, `inviteRequired`) bằng 2 script
 idempotent, không fork Outline. Thứ tự cài mới, sau khi stack đã `up` và có ít nhất
 1 user đăng nhập được (xem "Chạy lần đầu"):
@@ -131,7 +129,8 @@ idempotent, không fork Outline. Thứ tự cài mới, sau khi stack đã `up` 
    (`OUTLINE_OAUTH_CLIENT_ID`/`OUTLINE_OAUTH_CLIENT_SECRET`); mất thì phải tạo client mới.
 6. Kiểm bằng mắt trên Outline: tên/logo/màu đúng, ngôn ngữ đúng `DEFAULT_LANGUAGE`,
    không còn nút đăng nhập email/passkey, member không thấy nút mời người/tạo
-   collection, link share công khai đã tắt.
+   collection; mở Share của 1 tài liệu (không phải Share của collection) thấy toggle
+   "Publish to web" + "Include nested documents".
 
 `OUTLINE_ADMIN_API_TOKEN` chỉ dùng cho 2 script trên: không log, không commit,
 không phải key break-glass (key đó cất offline riêng, xem rủi ro bridge chết ở

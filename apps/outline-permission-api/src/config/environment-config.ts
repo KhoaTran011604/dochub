@@ -17,7 +17,13 @@ const environmentSchema = z.object({
   /** true khi chạy sau reverse proxy: tin X-Forwarded-* (IP thật cho audit log). */
   TRUST_PROXY: booleanFlag.default(false),
 
+  /** URL public của Outline: dùng để tạo link trả cho ERP. */
   OUTLINE_URL: httpUrl,
+  /**
+   * URL mà service này gọi Outline API (trong mạng compose là
+   * `http://outline:3000`). Bỏ trống = dùng OUTLINE_URL.
+   */
+  OUTLINE_INTERNAL_URL: httpUrl.optional(),
   /** API key của `system_admin` (Settings → API). Không log, không trả về. */
   OUTLINE_ADMIN_API_TOKEN: z.string().min(1),
   /** Không bao giờ suspend hay đổi quyền account mang email này qua API. */

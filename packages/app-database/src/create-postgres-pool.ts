@@ -1,7 +1,7 @@
 import pg from "pg";
 
 /**
- * Tạo pool tới database `hd_document_apps` (schema `bridge`, `companion`).
+ * Tạo pool tới database `hd_document_apps` (schema `bridge`, `permission_api`).
  * Không dùng cho database `outline` — database đó chỉ Outline được đụng.
  */
 export function createPostgresPool(

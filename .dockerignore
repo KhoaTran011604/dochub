@@ -1,0 +1,14 @@
+# Build context của các Dockerfile trong apps/ là thư mục gốc repo.
+**/node_modules
+**/dist
+**/.dev-keys
+**/.env
+**/.env.*
+.git
+.github
+.claude
+plans
+docs
+infra
+tests
+dev-note.md

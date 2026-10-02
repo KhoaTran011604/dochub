@@ -1,0 +1,33 @@
+{
+  "name": "@hd-document/oidc-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "generate:admin-password-hash": "tsx scripts/generate-system-admin-password-hash.ts",
+    "generate:signing-jwks": "tsx scripts/generate-signing-jwks.ts",
+    "dev:generate-erp-keypair": "tsx scripts/dev/generate-dev-erp-signing-keypair.ts",
+    "dev:sign-sso-link": "tsx scripts/dev/sign-dev-sso-handoff-link.ts",
+    "dev:seed-erp-user": "tsx scripts/dev/seed-dev-erp-user.ts"
+  },
+  "dependencies": {
+    "@koa/router": "^15.7.0",
+    "argon2": "0.44.0",
+    "jose": "^6.2.12",
+    "oidc-provider": "^9.12.2",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@hd-document/app-database": "workspace:*",
+    "@types/koa": "^3.0.3",
+    "@types/oidc-provider": "^9.12.1",
+    "@types/pg": "^8.23.1"
+  }
+}

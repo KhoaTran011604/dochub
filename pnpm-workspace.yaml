@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "tests/*"
 
 # pnpm 10 chặn postinstall mặc định; esbuild (tsx, vitest) cần tải binary.
 onlyBuiltDependencies:

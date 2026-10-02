@@ -1,0 +1,9 @@
+{
+  // Chỉ cho file config ở root (eslint, vitest). Mỗi package có tsconfig riêng.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["*.ts", "*.mjs"]
+}

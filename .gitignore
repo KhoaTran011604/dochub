@@ -23,3 +23,10 @@ infra/backup-output/
 .DS_Store
 *.log
 dev-note.md
+
+# Khóa dev đóng vai ERP (scripts/dev của oidc-bridge)
+.dev-keys/
+
+# Playwright
+tests/e2e/test-results/
+tests/e2e/playwright-report/

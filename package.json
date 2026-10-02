@@ -7,9 +7,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "typecheck": "tsc -p tsconfig.json && pnpm -r typecheck",
+    "lint": "eslint .",
     "test": "pnpm -r test",
+    "e2e": "pnpm --filter @hd-document/e2e e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

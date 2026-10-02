@@ -13,12 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
-      # Cho test tích hợp migration của packages/app-database.
+      # Cho test tích hợp của packages/app-database và apps/oidc-bridge.
       postgres:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: ci-only-password
-          POSTGRES_DB: hd_document_apps
         ports:
           - 5432:5432
         options: >-
@@ -27,7 +26,12 @@ jobs:
           --health-timeout 3s
           --health-retries 20
     env:
-      APP_DATABASE_URL: postgres://postgres:ci-only-password@localhost:5432/hd_document_apps
+      # Mật khẩu chỉ tồn tại trong container CI dùng 1 lần.
+      SUPERUSER_DATABASE_URL: postgres://postgres:ci-only-password@localhost:5432/postgres
+      # Owner (không phải superuser): chạy migration, seed dữ liệu test.
+      APP_DATABASE_URL: postgres://hd_document_apps:ci-owner-password@localhost:5432/hd_document_apps
+      # Role runtime của bridge: test chạy đúng quyền như production.
+      BRIDGE_DATABASE_URL: postgres://bridge_app:ci-bridge-password@localhost:5432/hd_document_apps
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,4 +43,18 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm lint
+      - name: Create database and roles (same layout as infra/postgres-init)
+        run: |
+          psql "$SUPERUSER_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE hd_document_apps LOGIN PASSWORD 'ci-owner-password';
+          CREATE ROLE bridge_app LOGIN PASSWORD 'ci-bridge-password';
+          CREATE ROLE permission_api_app LOGIN PASSWORD 'ci-permission-api-password';
+          CREATE DATABASE hd_document_apps OWNER hd_document_apps;
+          REVOKE CONNECT ON DATABASE hd_document_apps FROM PUBLIC;
+          GRANT CONNECT ON DATABASE hd_document_apps TO bridge_app, permission_api_app;
+          SQL
+      - name: Run migrations as the owner role
+        run: pnpm --filter @hd-document/app-database migrate
       - run: pnpm test
+      # E2E (tests/e2e, Playwright) cần cả stack Outline đang chạy → chạy tay,
+      # xem infra/README.md.

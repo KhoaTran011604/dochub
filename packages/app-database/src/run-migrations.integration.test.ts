@@ -25,16 +25,16 @@ describe.skipIf(!databaseUrl)("runMigrations (real Postgres)", () => {
     await pool?.end();
   });
 
-  it("creates the bridge and companion schemas", async () => {
+  it("creates the bridge and permission_api schemas", async () => {
     await runMigrations(databaseUrl);
 
     const result = await pool!.query<{ schema_name: string }>(
       `SELECT schema_name FROM information_schema.schemata
-       WHERE schema_name IN ('bridge', 'companion') ORDER BY schema_name`,
+       WHERE schema_name IN ('bridge', 'companion', 'permission_api') ORDER BY schema_name`,
     );
     expect(result.rows.map((row) => row.schema_name)).toEqual([
       "bridge",
-      "companion",
+      "permission_api",
     ]);
   });
 

@@ -35,8 +35,7 @@ export function buildErpSsoStartUrl(
 /** Phần dành cho user ERP: nút SSO sang IdP thật, hoặc nút/hướng dẫn handoff của ERP. */
 function renderErpUserSection(model: LoginPageModel): string {
   if (model.upstreamLoginUrl) {
-    return `<a class="button-link" href="${escapeHtml(model.upstreamLoginUrl)}">Đăng nhập SSO (tài khoản HDWebsoft)</a>
-<p class="hint">Người dùng ERP: bấm nút trên.</p>`;
+    return `<a class="button-link" href="${escapeHtml(model.upstreamLoginUrl)}">Đăng nhập SSO (tài khoản HDWebsoft)</a>`;
   }
   const ssoStartUrl = buildErpSsoStartUrl(model.erpPortalUrl, model.outlineUrl);
   return ssoStartUrl
@@ -62,16 +61,16 @@ export function renderLoginPage(model: LoginPageModel): string {
   // Có IdP thật: SSO lên đầu, form admin xuống dưới (đường phụ / break-glass).
   const sections = model.upstreamLoginUrl
     ? [
-        `<h1>Đăng nhập</h1>${error}`,
-        renderErpUserSection(model),
-        `<div class="divider">quản trị hệ thống</div>`,
-        adminForm,
-      ]
+      `<h1>Đăng nhập</h1>${error}`,
+      renderErpUserSection(model),
+      `<div class="divider">quản trị hệ thống</div>`,
+      adminForm,
+    ]
     : [
-        `<h1>Đăng nhập quản trị</h1>${error}`,
-        adminForm,
-        `<div class="divider">hoặc</div>`,
-        renderErpUserSection(model),
-      ];
+      `<h1>Đăng nhập quản trị</h1>${error}`,
+      adminForm,
+      `<div class="divider">hoặc</div>`,
+      renderErpUserSection(model),
+    ];
   return renderHtmlPage("Đăng nhập", sections.join("\n"));
 }

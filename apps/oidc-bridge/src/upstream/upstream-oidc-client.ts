@@ -127,6 +127,13 @@ function classifyCallbackError(error: unknown): {
   reason: UpstreamLoginRejection;
   detail?: string;
 } {
+  // Message của openid-client là chuỗi cố định (vd. 'JWT "nonce" claim missing'),
+  // không chứa code/token; cần để biết IdP trả sai ở đâu.
+  if (error instanceof Error) {
+    console.error(
+      `upstream callback rejected: ${error.name}${"code" in error ? ` ${String(error.code)}` : ""}: ${error.message}`,
+    );
+  }
   if (error instanceof oidc.AuthorizationResponseError) {
     return { reason: "idp_denied", detail: error.error };
   }

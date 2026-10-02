@@ -1,102 +1,112 @@
 ---
-title: "Hệ thống tài liệu dự án: Outline + OIDC bridge + Companion"
-description: "MVP 1 (30 ngày công): self-host Outline, OIDC bridge (system_admin local + ERP stub), quy ước dự án, companion tạo doc từ template + endpoint bên thứ 3. MVP 2: AI gen, sync quyền, ERP thật."
+title: "Hệ thống tài liệu dự án: Outline + OIDC bridge (SSO) + Permission API"
+description: "Không tự viết UI. Outline tùy biến bằng config; OIDC bridge cho SSO 1 click từ ERP; permission API headless để ERP đẩy quyền và tạo node, user vào Outline sửa. 30 ngày công, không còn dự phòng."
 status: pending
 priority: P2
-effort: 232h
+effort: 240h
 branch: develop
-tags: [feature, infra, auth, backend, frontend, api]
+tags: [feature, infra, auth, sso, backend, api, permissions]
 created: 2026-10-01
 ---
 
-# Hệ thống tài liệu dự án: Outline + OIDC bridge + Companion
+# Hệ thống tài liệu dự án: Outline + OIDC bridge (SSO) + Permission API
 
 ## Tổng quan
 
-Outline lo wiki/editor/quyền/file. Tự viết: **OIDC bridge** (đăng nhập ERP + 1 account `system_admin` local), **companion** (template → form → doc, endpoint cho bên thứ 3). 1 dev, **ngân sách MVP 1 = 30 ngày công**. Không có phase spike: làm theo giả định từ research, sai đâu lấy fallback ghi trong từng phase.
+Outline lo wiki/editor/quyền/file, tùy biến chỉ bằng env + team settings (image chính thức pin `1.10.1` + digest, không fork). Tự viết 2 service headless, **không có web UI riêng**:
 
-Hoãn sang MVP 2: AI gen, job sync quyền ERP → Outline, adapter ERP thật, phần hardening còn lại. Đã bỏ hẳn: phase spike, init bộ tài liệu dự án.
+1. **oidc-bridge**: IdP duy nhất của Outline. User ERP vào bằng link 1 click (JWT ngắn hạn do ERP ký); `system_admin` local (form argon2id) làm đường admin / break-glass.
+2. **outline-permission-api**: ERP đẩy user + quyền (dự án, từng node) và tạo node doc; service áp vào Outline ngay.
 
-Tổng hợp 1 file (công việc, spec, kiến trúc, stack): [project-brief](./project-brief-tasks-spec-architecture-and-locked-stack.md)
+Luồng chính (tiêu chí số 1): ERP gọi API tạo node → nhận link → bọc link bằng SSO → user 1 click → đứng trong Outline, sửa văn bản bình thường.
 
-Nguồn: [brainstorm](../reports/brainstorm-261001-0953-outline-plus-companion-document-system.md) · [research 01](./research/researcher-01-outline-selfhost-and-api.md) · [research 02](./research/researcher-02-oidc-provider-and-claude-api.md)
+1 dev. Không có phase spike: mỗi phase thử giả định rủi ro nhất ngay ngày đầu, sai thì lấy fallback ghi tại chỗ.
 
-## Kiến trúc chốt (MVP 1)
+Tổng hợp 1 file: [project-brief](./project-brief-tasks-spec-architecture-and-locked-stack.md)
+
+Nguồn: [brainstorm](../reports/brainstorm-261001-0953-outline-plus-companion-document-system.md) · research [01](./research/researcher-01-outline-selfhost-and-api.md) · [02](./research/researcher-02-oidc-provider-and-claude-api.md) · [03](./research/researcher-03-sso-token-handoff-into-oidc-bridge.md) · [04](./research/researcher-04-outline-permission-api-user-provisioning-and-branding.md). Research 03/04 có chỗ sai (`setProviderSession`, `@josesuite/node`, nhiều mục ASSUMED): lệch với phase file thì phase file đúng (đã đối chiếu source Outline `v1.10.1`).
+
+## Kiến trúc chốt
 
 ```
-Browser ─> Outline ──OIDC──> oidc-bridge ──ErpAuthAdapter──> ERP (stub; thật ở MVP 2)
-   │                              └─ system_admin local (argon2id, không qua ERP)
-   └────> companion (Next.js) ──OAuth thay mặt user──> Outline API
-                 └─ endpoint bên thứ 3: tạo doc bằng token của user ERP được chỉ định
-register-project CLI (admin token) ──> Outline API: collection + 3 group cho mỗi dự án
+ERP (server) ── service key ──> outline-permission-api ── admin token ──> Outline API
+                                  │  PUT users / projects / members        (cấp, thu quyền)
+                                  └─ POST documents ── token OAuth của user ──> documents.create
+                                       → 201 { url } | 202 { pendingUrl }
+
+ERP (trình duyệt) ── {bridge}/sso?token=<jwt>&returnTo=<url> ──> oidc-bridge
+                                  │ verify JWT, 1 lần, đặt handoff        └─ system_admin: form argon2id
+                                  └─ 302 ──> Outline ──OIDC──> oidc-bridge (tự hoàn tất) ──> doc
 ```
 
-MVP 2 thêm: `permission-sync-worker ──ErpRoleSource──> Outline API`, `companion ──> Claude proxy`.
-
-Layout MVP 1: `apps/oidc-bridge`, `apps/companion`, `packages/outline-api-client`, `packages/erp-adapters`, `packages/project-permission-sync`, `packages/app-database`, `infra/`. MVP 2 thêm `apps/permission-sync-worker`.
+Layout: `apps/oidc-bridge`, `apps/outline-permission-api`, `packages/outline-api-client`, `packages/outline-workspace-setup`, `packages/app-database`, `infra/`, `tests/e2e` (2 spec).
 
 ## Phases
-
-### MVP 1 (29 ngày công + 1 ngày dự phòng)
 
 | # | Phase | Status | Effort | Link |
 |---|---|---|---|---|
 | 1 | Monorepo + hạ tầng Outline | Done | 24h (3d) | [phase-01](./phase-01-monorepo-and-outline-infra.md) |
-| 2 | OIDC bridge + system_admin local + ERP auth stub | Pending | 64h (8d) | [phase-02](./phase-02-oidc-bridge-local-system-admin-erp-adapter-stub.md) |
-| 3 | Outline API client + quy ước dự án/collection/group | Pending | 16h (2d) | [phase-03](./phase-03-project-conventions-and-permission-sync-job.md) |
-| 4 | Companion: auth, template → form → doc, endpoint bên thứ 3 | Pending | 104h (13d) | [phase-04](./phase-04-companion-auth-template-form-third-party-endpoint.md) |
-| 7 | Test cốt lõi, backup, runbook, docs tối thiểu | Pending | 24h (3d) | [phase-07](./phase-07-testing-hardening-operations-docs.md) |
+| 2 | OIDC bridge + SSO token handoff + system_admin local | Pending | 68h (8,5d) | [phase-02](./phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) |
+| 3 | Cấu hình + branding Outline, Outline API client | Pending | 24h (3d) | [phase-03](./phase-03-outline-config-branding-and-api-client.md) |
+| 4 | Permission API: user, dự án, cấp/thu quyền | Pending | 56h (7d) | [phase-04](./phase-04-permission-layer-api-users-projects-and-grants.md) |
+| 5 | API tạo node, tác giả là user thật | Pending | 44h (5,5d) | [phase-05](./phase-05-create-node-api-with-real-user-authorship.md) |
+| 6 | Rà bảo mật, backup/restore, runbook, tài liệu ERP | Pending | 24h (3d) | [phase-06](./phase-06-testing-hardening-operations-docs.md) |
+| 7 | API cây tài liệu cho bên thứ 3 | Deferred | 16h (2d) | [phase-07](./phase-07-deferred-third-party-document-tree-api.md) |
 
-### MVP 2 (hoãn, ~19 ngày công; bảng theo thứ tự làm)
+**Tổng 1-6: 240h = 30 ngày công** (đã xong 24h, còn 216h = 27 ngày). Bằng đúng ngân sách MVP 1 cũ (29 ngày + 1 dự phòng) nhưng **không còn ngày dự phòng nào**. Toàn lộ trình giảm từ ~49 ngày (MVP 1 + MVP 2 cũ) xuống 30 ngày + 2 ngày hoãn. UI companion bị bỏ, nhưng API đẩy quyền (trước nằm ở MVP 2 dưới dạng sync worker + adapter ERP) và SSO handoff vào phạm vi chính.
 
-| # | Phase | Status | Effort | Link |
-|---|---|---|---|---|
-| 9 | Job sync quyền ERP → Outline | Deferred | 32h (4d) | [phase-09](./phase-09-permission-sync-worker.md) |
-| 8 | ERP auth/role adapter thật | Blocked | 32h (4d, ±) | [phase-08](./phase-08-deferred-real-erp-auth-and-role-adapters.md) |
-| 10 | API cây tài liệu cho bên thứ 3 | Deferred | 16h (2d) | [phase-10](./phase-10-third-party-document-tree-api.md) |
-| 5 | AI gen qua Claude proxy | Deferred | 40h (5d) | [phase-05](./phase-05-ai-generation-via-claude-proxy.md) |
-| 7b | Hardening còn lại (test hợp đồng, diễn tập nâng cấp, docs đầy đủ) | Deferred | 32h (4d) | [phase-07 § Hoãn](./phase-07-testing-hardening-operations-docs.md#hoãn-sang-mvp-2) |
+Muốn có dự phòng: đổi tác giả doc sang service account → phase 5 còn ~14h, tiết kiệm ~30h (3,75 ngày). Chi tiết: phase-05, mục "Cái giá của tác giả thật".
 
 ## Phụ thuộc chính
 
-- MVP 1: 1 → 2 → 3 → 4 → 7. MVP 2: 9 → 8 → 10 → 5 → 7b. Phase 8 cần contract ERP; chưa có thì làm 5 trước.
-- Luồng ERP đầy đủ (tạo node qua API → link → user ERP vào Outline sửa → chỉ thấy cây được phân quyền) chạy thật sau khi xong 9 + 8 + 10. Endpoint tạo node đã có từ phase 4.
-- Ngoài: Docker, Node 22, Postgres 16 (glibc), Redis 7, Outline `1.10.1` (local file storage), `oidc-provider` 9.x.
+- Thứ tự: 1 → 2 → 3 → 4 → 5 → 6. Phase 7 chỉ mở khi ERP yêu cầu.
+- Phía ERP chưa có: CLI dev ký JWT (phase 2) đóng vai ERP → không phase nào bị chặn. Nghiệm thu thật cần ERP xác nhận hợp đồng JWT.
+- Ngoài: Docker, Node 22, Postgres 16 (glibc), Redis 7, Outline `1.10.1`, `oidc-provider` 9.x, `jose`, Koa.
 - Mọi call Outline đi qua `packages/outline-api-client`.
 
-## Rủi ro lịch (do bỏ spike)
+## Rủi ro lịch
 
-- Dự phòng chỉ 1 ngày. 2 giả định có thể phá lịch: OAuth app của Outline dùng được trên self-host (sai → phase 4 +2-6 ngày), `oidc-provider` 9.x chạy đúng như tài liệu (sai → phase 2 phải plan lại).
-- Gặp 1 trong 2 → dừng, báo user, cắt endpoint bên thứ 3 (≈5 ngày) sang MVP 2 để bù.
+- Không có dự phòng. 3 giả định có thể phá lịch, đều thử ở ngày đầu của phase tương ứng: `oidc-provider` + handoff chạy trọn luồng với Outline (phase 2); `users.invite` không SMTP + khớp account ở lần SSO đầu (phase 4); OAuth của Outline chạy trên self-host (phase 5).
+- Trượt → dừng, báo user. Đòn bẩy cắt: tác giả service account (−30h), bỏ quyền mức node (−4h), bỏ script team settings và đặt tay (−5h).
 
 ## Tiêu chí thành công
 
-MVP 1:
-- `system_admin` đăng nhập Outline được khi ERP API chưa có hoặc đang down; user stub đăng nhập được ở dev.
-- Share page cha → người nhận thấy toàn bộ page con, không thấy gì ngoài nhánh.
-- Companion không bao giờ trả nội dung doc mà user không đọc được trong Outline.
-- Tạo doc chuẩn từ template < 2 phút, style đồng nhất.
+- **Luồng chính:** gọi API tạo node → link → bọc SSO → 1 click → user đứng trong doc mới ở Outline, sửa được; tác giả là chính user. Chạy được bằng CLI dev trước khi ERP có.
+- SSO: không mật khẩu, không thấy màn login Outline hay form bridge; token replay/hết hạn/sai chữ ký không đăng nhập được.
+- `system_admin` login được khi không có ERP.
+- ERP cấp role dự án hoặc quyền 1 node → user thấy và sửa được đúng phần đó, không thấy gì ngoài; thu quyền / deactivate có hiệu lực ngay.
+- Outline hiện đúng tên, logo, ngôn ngữ; chỉ còn đường đăng nhập qua bridge; member không mời người, không share công khai.
 - Restore từ backup lên máy sạch thành công.
 
-MVP 2:
-- User ERP thật đăng nhập Outline không cần tạo account riêng.
-- Quyền ERP đổi → Outline khớp sau tối đa 1 chu kỳ reconcile; user nghỉ việc bị suspend.
+## Thay đổi so với plan trước (Session 5)
 
-## Thay đổi so với brainstorm
+- Bỏ `apps/companion` (Next.js, React, shadcn, TanStack Query, template → form → doc). Thay bằng `apps/outline-permission-api` headless.
+- Bỏ form username/password kiểm qua ERP + `packages/erp-adapters`. Thay bằng SSO token handoff.
+- Bỏ khỏi lộ trình: AI gen, sync worker kéo quyền, adapter ERP thật. Quyền do ERP đẩy qua API.
+- Đánh số lại phase (cũ → mới): 2 → 2 (viết lại) · 3 → 3 + 4 · 4 → 5 (chỉ còn endpoint) · 7 → 6 · 10 → 7 (hoãn) · 5, 8, 9 xóa.
+- File phase đã xóa: `phase-02-oidc-bridge-local-system-admin-erp-adapter-stub`, `phase-03-project-conventions-and-permission-sync-job`, `phase-04-companion-auth-template-form-third-party-endpoint`, `phase-05-ai-generation-via-claude-proxy`, `phase-07-testing-hardening-operations-docs`, `phase-08-deferred-real-erp-auth-and-role-adapters`, `phase-09-permission-sync-worker`, `phase-10-third-party-document-tree-api`.
+- Schema Postgres `companion` → `permission_api` (migration 0002, schema còn rỗng). Tách role DB cho 2 service.
+- Giữ nguyên: `system_admin` local, break-glass bằng API key admin cất offline, quy ước 1 dự án = 1 collection private + 3 group.
 
-- Bỏ magic link. `system_admin` = account local trong bridge. Hệ quả: bridge chết thì không ai login Outline (kể cả admin); break-glass còn lại là API key admin cất offline.
-- Companion đăng nhập bằng OAuth của Outline (1 luồng vừa định danh vừa lấy token thay mặt user), không làm OIDC client riêng của bridge trừ khi phải fallback.
-- MVP 1 gán thành viên vào 3 group của dự án bằng tay trong Outline (chưa có sync).
+## Giả định mặc định (user có thể lật lại)
+
+- Bỏ tính năng template → form → doc. API tạo node nhận `title` + `text` markdown (+ `parentDocumentId`).
+- AI gen ra khỏi lộ trình.
+- API cây tài liệu: giữ là việc hoãn duy nhất (ERP đã có `documentId`/`url` của node nó tạo; đọc cây theo quyền user cần grant + thêm nhánh lỗi, ~2 ngày, không thuộc luồng chính).
+- SSO yêu cầu user đã được provision qua API; email/tên lấy từ API provision, không lấy từ JWT.
 
 ## Câu hỏi chưa giải quyết
 
-1. Contract ERP: API login/verify JWT và API role (project → members/roles); có webhook khi role đổi không; có cách chuyển session ERP sang bridge để login 1 click thật không.
-2. Chính sách + ngân sách gửi nội dung tài liệu ra Claude qua proxy (MVP 2).
-3. Nơi deploy (on-prem/cloud), domain, TLS (ai cấp cert, có reverse proxy sẵn chưa).
-4. SMTP: chỉ cần cho thông báo của Outline. Có sẵn chưa, hay chạy không email?
-5. Proxy: có hỗ trợ streaming, prompt caching, tham số `thinking`/`output_config`, beta header không? → kiểm khi làm phase 5 (MVP 2).
-6. ERP định danh user bằng gì khi gọi endpoint bên thứ 3 (email có trùng email trong Outline không)?
-7. Trước phase 8 production chỉ `system_admin` login được → endpoint bên thứ 3 (cần grant của user ERP) chưa dùng được thật ở MVP 1. Vẫn giữ trong MVP 1 hay dời sang MVP 2 để có ~6 ngày dự phòng?
+1. **Hợp đồng JWT với ERP:** thuật toán (đề xuất ES256), phân phối khóa (JWKS URL hay PEM), claim định danh (`sub` = erpUserId?), `iss`/`aud`, ai dựng link và dựng lúc nào (đề xuất: endpoint ERP ký tại thời điểm click, `exp` ≤ 60s). ERP có giữ được header `Referer` khi chuyển sang bridge không?
+2. **Domain / TLS:** ERP, bridge, Outline, permission API có chung registrable domain không? Ảnh hưởng: cookie/SameSite, cách xử lý lệch phiên (đang là hạn chế chấp nhận), ràng buộc chống login CSRF, mẹo giữ màn đồng ý OAuth ở lần đầu. Ai cấp cert, đã có reverse proxy chưa?
+3. **`erpUserId` + email:** ERP có đảm bảo `erpUserId` không đổi, không tái sử dụng; email unique, đã xác minh, user không tự sửa tùy ý được không? (Outline khớp account theo email verified.)
+4. **Tác giả thật hay service account:** phát hiện ở phase 5: user chưa có phiên Outline thì lần đầu phải mở link 2 lượt (lượt 1 đăng nhập, lượt 2 đồng ý). Chấp nhận, đổi sang service account (−30h), hay phương án headless?
+5. **Phiên Outline của user khác trên cùng trình duyệt:** chấp nhận hạn chế + ERP logout đi qua `{outline}/logout`, hay cần ép đăng nhập lại (đặt bridge cùng host Outline, +1 ngày)?
+6. **Nơi deploy** (on-prem/cloud); permission API chỉ mở trong mạng nội bộ cho ERP được không?
+7. **SMTP:** chạy không email (invite dùng `suppressEmail`, không có thông báo của Outline) có chấp nhận được không?
+8. Số user nạp đầu? (`users.invite` giới hạn ~1000 user/giờ.)
+9. Quyền mức node: `read` / `read_write` là đủ, hay ERP cần cả `admin` trên doc?
+10. Frontmatter `branch` ghi `develop`, nhánh thật đang là `feat/phase-1-new`: lấy nhánh nào?
 
 ## Validation Log
 
@@ -168,3 +178,55 @@ MVP 2:
 - **vitest.workspace.ts → vitest.config.ts** (Vitest 5 removed workspace.ts): Using `test.projects` in config.
 - **Review fixes applied**: postgres:16 (glibc, not alpine), Outline bind 127.0.0.1, backup umask 077 + COMPLETE marker, REVOKE CONNECT on postgres, format:check + timeout in CI, no-new-privileges + log rotation.
 - **Phase 01 marked Done** with review status, success criteria updated to ✓, deviations documented.
+
+### Session 5 — 2026-10-01
+**Trigger:** user đổi hướng sản phẩm: không tự viết web UI; ưu tiên SSO.
+**Questions asked:** 4 (+ 3 giả định mặc định của planner)
+
+#### Questions & Answers
+
+1. **[Scope]** Phần tự viết còn lại gồm gì?
+   - **Answer:** (1) Outline tùy biến bằng config + branding, không fork; (2) permission layer / BFF API headless thay `apps/companion`, không Next.js/React/template/form; (3) quyền đủ mạnh để bên thứ 3 tạo node và user của họ vào Outline sửa; (4) SSO, quan trọng nhất, làm trước.
+   - **Rationale:** luồng lõi user tự diễn đạt: giữ API tạo node → trả link → bên thứ 3 theo link → SSO → vào Outline sửa văn bản bình thường. Đây là tiêu chí thành công số 1.
+
+2. **[Architecture]** SSO theo cách nào?
+   - **Answer:** token handoff 1 click: ERP ký JWT ngắn hạn mang trong link; bridge verify rồi đăng nhập không mật khẩu. `system_admin` local giữ làm đường admin / break-glass.
+   - **Rationale:** bỏ form username/password kiểm qua API ERP → không cần `packages/erp-adapters`.
+
+3. **[Architecture]** Nguồn quyền?
+   - **Answer:** bên thứ 3 ĐẨY quyền qua BFF API (cấp/thu user–role trên dự án hoặc trên 1 node); BFF áp ngay vào Outline bằng admin token.
+   - **Rationale:** sync worker kéo (phase 9 cũ) và adapter role ERP thật (phase 8 cũ) ra khỏi lộ trình.
+
+4. **[Architecture]** Tác giả doc khi bên thứ 3 tạo node?
+   - **Answer:** user THẬT (không phải service account) → BFF cần token Outline theo từng user.
+   - **Rationale:** giữ quyết định Session 1. Giá: 1 lần đồng ý trong UI Outline + nhánh `202 pendingUrl` (~30h). Planner ghi rõ để user cân nhắc lại.
+
+#### Giả định mặc định của planner (user có thể lật lại)
+- Bỏ template → form → doc; API tạo node nhận `title` + `text` markdown (+ `parentDocumentId`).
+- AI gen (phase 5 cũ) ra khỏi lộ trình.
+- API cây tài liệu (phase 10 cũ): giữ là việc hoãn duy nhất (phase 7 mới).
+
+#### Quyết định của planner ở chỗ để ngỏ
+- Tên app: `apps/outline-permission-api`. Framework: Koa + `@koa/router` (bridge đã buộc dùng Koa).
+- Schema `companion` đổi tên thành `permission_api` bằng migration 0002.
+- Giữ Playwright với đúng 2 spec (chuỗi SSO, chuỗi đồng ý OAuth).
+- Hồ sơ user (email, tên) lấy từ API provision, không lấy từ JWT; SSO yêu cầu user đã provision. Lý do: Outline khớp account theo email verified → email trong JWT là đường chiếm account; tránh PII trên URL.
+- Handoff giữ bằng id ngẫu nhiên tham chiếu dòng DB (dùng 1 lần), không phải cookie ký mang account id.
+- Lệch phiên Outline: hạn chế chấp nhận (chung registrable domain không giải quyết được vì cookie `accessToken` host-only).
+- Login CSRF: `exp` ≤ 60s + `jti` 1 lần + bắt buộc `Referer` từ origin ERP; rủi ro còn lại chấp nhận.
+
+#### Phát hiện khi đối chiếu source Outline `v1.10.1`
+- `/oauth/authorize` khi chưa có phiên render thẳng màn Login, không lưu `postLoginPath` → lần đầu của user chưa có phiên cần 2 lượt mở link. Đưa vào câu hỏi mở số 4.
+- `users.invite`: 20 invite/request, 50 request/giờ; email đã tồn tại bị lọc ra chứ không lỗi.
+- `team.update`, `oauthClients.create`: tên field đã xác nhận trong schema (bảng ở phase 3).
+- `documents.create` nhận `id` do client cấp → idempotency chính xác 1 lần.
+
+#### Impact on Phases
+- Phase 2: viết lại (SSO handoff, bỏ ERP adapter), đổi tên file. 64h → 68h.
+- Phase 3: thành "cấu hình + branding + API client". Quy ước dự án chuyển sang phase 4. 16h → 24h.
+- Phase 4: mới, permission API (thay companion + thay phase 9/8 cũ). 56h.
+- Phase 5: mới, API tạo node (phần endpoint bên thứ 3 của phase 4 cũ). 44h.
+- Phase 6: là phase 7 cũ, bỏ E2E companion, thêm tài liệu tích hợp ERP. 24h.
+- Phase 7: là phase 10 cũ, vẫn hoãn.
+- Xóa: phase 5 (AI gen), 8 (ERP adapter), 9 (sync worker) cũ.
+- Tổng 1-6: 240h (30 ngày), không còn dự phòng.

@@ -1,5 +1,29 @@
 # Nhật ký dự án
 
+## [2026-10-01] Đổi phạm vi: không tự viết UI, SSO làm trước
+
+**Status:** Kế hoạch đã cập nhật, chưa có thay đổi code  
+**Scope:** plan, phase files, roadmap  
+**Nguồn:** [plan.md § Validation Log, Session 5](../plans/261001-0953-outline-plus-companion-document-system/plan.md)
+
+### Thay đổi
+
+- **Bỏ:** app web companion (Next.js, React, shadcn, TanStack Query, template → form → doc); form đăng nhập username/password kiểm qua ERP và `packages/erp-adapters`; AI gen; sync worker kéo quyền; adapter ERP thật.
+- **Thêm:** SSO token handoff (ERP ký JWT ngắn hạn trong link, bridge verify, đăng nhập 1 click); `apps/outline-permission-api` headless (ERP đẩy user + quyền dự án / quyền từng node, tạo node doc dưới tên user thật); cấu hình + branding Outline bằng env và `team.update`.
+- **Giữ:** Outline pin `1.10.1` + digest, không fork; `system_admin` local làm đường admin / break-glass; quy ước 1 dự án = 1 collection private + 3 group.
+- **Schema DB:** `companion` sẽ đổi tên thành `permission_api` ở migration 0002 (schema đang rỗng); tách role DB cho từng service.
+
+### Phase
+
+- Đánh số lại (cũ → mới): 2 → 2 (viết lại) · 3 → 3 + 4 · 4 → 5 · 7 → 6 · 10 → 7 (hoãn) · 5, 8, 9 xóa. Mục phase 1 bên dưới ghi "phase 7" cho lịch backup + diễn tập restore: nay là phase 6.
+- Effort: 240h (30 ngày công) cho phase 1-6, không còn dự phòng; trước đó MVP 1 30 ngày + MVP 2 ~19 ngày.
+
+### Rủi ro đã ghi nhận
+
+- Tác giả doc là user thật → mỗi user phải đồng ý 1 lần trong UI Outline; user chưa có phiên Outline cần mở link 2 lượt ở lần đầu. Đổi sang service account tiết kiệm ~30h (chờ user quyết).
+- Trình duyệt đang giữ phiên Outline của user khác: bridge không xóa được (cookie host-only). Hạn chế đã chấp nhận, ghi runbook.
+- Hợp đồng JWT với ERP chưa được xác nhận; dùng CLI dev ký JWT để phát triển và test.
+
 ## [2026-10-01] Phase 01: Monorepo & Hạ tầng Outline
 
 **Status:** ✓ Hoàn thành  

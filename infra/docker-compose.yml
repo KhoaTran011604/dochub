@@ -1,7 +1,7 @@
 name: hd-document
 
-# Postgres và Redis không publish port ra host. Dev cần nối Postgres từ host
-# (chạy migration) thì thêm file override: docker-compose.dev-ports.yml.
+# Redis không publish port ra host. Postgres chỉ publish ra loopback
+# (POSTGRES_HOST_PORT) để chạy migration và nối pgAdmin từ host.
 
 x-service-defaults: &service-defaults
   restart: unless-stopped
@@ -20,6 +20,9 @@ services:
     # Bản Debian (glibc), không dùng -alpine: musl không có collation theo
     # locale, và đổi libc khi đã có dữ liệu làm hỏng index text.
     image: postgres:16
+    ports:
+      # Trong container Postgres luôn nghe 5432; chỉ port trên host đổi được.
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in infra/.env}
       # Đọc bởi postgres-init/01-create-databases.sql

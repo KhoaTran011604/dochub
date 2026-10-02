@@ -23,21 +23,15 @@ Mật khẩu database chỉ được áp dụng khi volume `postgres-data` còn 
 
 ## Migration cho app tự viết
 
-Postgres không publish port ra host. Mở tạm (chỉ loopback) bằng file override:
-
-```sh
-docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d --wait
-```
-
-Host đã có Postgres chiếm 5432 → đổi `POSTGRES_HOST_PORT` trong `.env` (ví dụ 55432).
+Postgres publish ra host chỉ trên `127.0.0.1`, port theo `POSTGRES_HOST_PORT` trong `.env` (mặc định 5432; ví dụ 55432 nếu 5432 bị chiếm). Trong container vẫn là 5432. pgAdmin: host `localhost`, port = `POSTGRES_HOST_PORT`.
 
 Từ thư mục gốc repo:
 
 ```sh
 # bash
-export APP_DATABASE_URL=postgres://hd_document_apps:<APP_DB_PASSWORD>@localhost:5432/hd_document_apps
+export APP_DATABASE_URL=postgres://hd_document_apps:<APP_DB_PASSWORD>@localhost:55432/hd_document_apps
 # PowerShell
-$env:APP_DATABASE_URL = "postgres://hd_document_apps:<APP_DB_PASSWORD>@localhost:5432/hd_document_apps"
+$env:APP_DATABASE_URL = "postgres://hd_document_apps:<APP_DB_PASSWORD>@localhost:55432/hd_document_apps"
 
 pnpm --filter @hd-document/app-database migrate
 ```
@@ -58,7 +52,7 @@ Stack phải đang chạy (service `backup` không tự khởi động Postgres)
 
 File dump chứa secret: chỉ owner đọc được (umask 077), không chép ra nơi chia sẻ.
 
-Lịch backup tự động + diễn tập restore: phase 7.
+Lịch backup tự động + diễn tập restore: phase 6.
 
 ## Quy định vận hành
 

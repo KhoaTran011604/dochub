@@ -137,5 +137,5 @@ Sửa: không. (minio-init không tạo)
 ## Next Steps
 
 - Phase 2 thêm service `oidc-bridge` vào compose và điền biến OIDC cho Outline.
-- Phase 7 hoàn thiện lịch backup + diễn tập restore.
+- Phase 6 (phase 7 trước Session 5) hoàn thiện lịch backup + diễn tập restore.
 - **IMPORTANT**: Upload file Outline test lại ở phase 2 bước 12 khi đã login được (deferred criterion).

@@ -1,7 +1,0 @@
-# Override cho dev: mở Postgres ra host (chỉ loopback) để chạy migration.
-# docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d
-
-services:
-  postgres:
-    ports:
-      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"

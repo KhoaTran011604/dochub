@@ -8,12 +8,12 @@ Sản phẩm không tự viết web UI: Outline (tùy biến bằng config + bra
 |-------|-----|-----------|-----------|---------|
 | 1 | Monorepo + hạ tầng Outline | ✓ Hoàn thành | 3d | [phase-01](../plans/261001-0953-outline-plus-companion-document-system/phase-01-monorepo-and-outline-infra.md) |
 | 2 | OIDC bridge + SSO token handoff + system_admin local | ✓ Hoàn thành | 8,5d | [phase-02](../plans/261001-0953-outline-plus-companion-document-system/phase-02-oidc-bridge-sso-token-handoff-and-local-system-admin.md) · **Addendum (2026-10-02):** upstream IdP login (OIDC RP, openid-client, PKCE S256, `/upstream/callback`, gate `erp_users`, nút SSO + form admin cùng trang) |
-| 3 | Cấu hình + branding Outline, Outline API client | Pending | 3d | [phase-03](../plans/261001-0953-outline-plus-companion-document-system/phase-03-outline-config-branding-and-api-client.md) |
+| 3 | Cấu hình + branding Outline, Outline API client | ✓ Hoàn thành | 3d | [phase-03](../plans/261001-0953-outline-plus-companion-document-system/phase-03-outline-config-branding-and-api-client.md) |
 | 4 | Permission API: user, dự án, cấp/thu quyền | Pending | 7d | [phase-04](../plans/261001-0953-outline-plus-companion-document-system/phase-04-permission-layer-api-users-projects-and-grants.md) |
 | 5 | API tạo node, tác giả là user thật | Pending | 5,5d | [phase-05](../plans/261001-0953-outline-plus-companion-document-system/phase-05-create-node-api-with-real-user-authorship.md) |
 | 6 | Rà bảo mật, backup/restore, runbook, tài liệu ERP | Pending | 3d | [phase-06](../plans/261001-0953-outline-plus-companion-document-system/phase-06-testing-hardening-operations-docs.md) |
 
-**Tiến độ:** 1/6 phase (3/30 ngày công, 10%)
+**Tiến độ:** 2/6 phase (6/30 ngày công, 20%)
 
 ## Theo dõi
 

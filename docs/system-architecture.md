@@ -2,12 +2,35 @@
 
 ## Tổng quan
 
-Hệ thống gồm 3 thành phần chính:
+Hệ thống gồm 3 thành phần chính + 2 package hỗ trợ:
 - **Outline** (v1.10.1): nền tảng tài liệu, UI web
 - **OIDC Bridge** (`apps/oidc-bridge`): cổng đăng nhập SSO + IdP relay
-- **Permission API** (`apps/outline-permission-api`): quản lý quyền người dùng
+- **Permission API** (`apps/outline-permission-api`): quản lý quyền người dùng (phase 4)
+- **outline-api-client** (`packages/outline-api-client`): HTTP client wrapper cho Outline API, dùng chung bởi các script setup
+- **outline-workspace-setup** (`packages/outline-workspace-setup`): 2 CLI script idempotent: áp cấu hình + branding Outline, đăng ký OAuth client
 
 Luồng: ERP → gọi API tạo node → link SSO → Bridge → login Outline → phân quyền
+
+---
+
+## Packages & Thư viện chung
+
+### `@hd-document/app-database`
+- Database schema migrations (node-pg-migrate)
+- Setup Postgres connection pool
+- Định nghĩa schema `bridge` + `permission_api` (tách role theo service)
+
+### `@hd-document/outline-api-client`
+- HTTP client wrapper cho Outline JSON-RPC API (`POST {OUTLINE_URL}/api/{method}`)
+- Typed error classes: `OutlineApiError`, `OutlineBadRequestError`, `OutlineUnauthorizedError`, `OutlineNotFoundError`, `OutlineRateLimitedError`, `OutlineTimeoutError`, `OutlineNetworkError`
+- Retry logic: tự retry 429 + 5xx (giới hạn `Retry-After` và số lần), timeout per-call
+- API methods: `getCurrentTeam()`, `updateTeam()`, `listOAuthClients()`, `findOAuthClientByName()`, `createOAuthClient()`, `updateOAuthClient()`
+- Non-idempotent calls (ví dụ `createOAuthClient`) có `retry: false` option để tránh trùng lặp
+
+### `@hd-document/outline-workspace-setup`
+- CLI: `apply-outline-workspace-settings` — đọc env, đổi team settings bằng `team.update` (branding, security, invitation policy). Idempotent: chạy lại không đổi gì nếu settings khớp.
+- CLI: `register-outline-oauth-client` — đăng ký OAuth client cho permission API, idempotent tìm theo tên
+- Env validation (zod): `WORKSPACE_NAME`, `WORKSPACE_LOGO_URL`, `WORKSPACE_ACCENT_COLOR`, `OUTLINE_ADMIN_API_TOKEN`, `OUTLINE_OAUTH_CLIENT_ID/SECRET` (nếu đã tạo)
 
 ---
 
@@ -109,11 +132,19 @@ Bridge hỗ trợ **2 đường** để xác thực user:
 
 ## Dependency & library
 
-### Bridge
+### OIDC Bridge (`apps/oidc-bridge`)
 - `openid-client@^6.8.8`: OIDC client (panva; discovery, PKCE, id_token verify)
 - `jose`: JWT operations
 - `zod`: Config validation
 - `oidc-provider`: Test fixture (fake IdP)
+
+### Outline API Client (`packages/outline-api-client`)
+- Fetch API (built-in); không dùng thư viện HTTP
+- TypeScript + Zod: typed requests/responses, error handling
+
+### Outline Workspace Setup (`packages/outline-workspace-setup`)
+- `@hd-document/outline-api-client`: consume wrapper client
+- `zod`: validate workspace settings từ env
 
 ### Database
 - `node-pg-migrate@9.0.0`: Schema migrations

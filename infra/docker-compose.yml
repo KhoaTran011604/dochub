@@ -96,6 +96,12 @@ services:
       OIDC_USERINFO_URI: ${OIDC_USERINFO_URI:-http://oidc-bridge:4001/me}
       OIDC_LOGOUT_URI: ${OIDC_LOGOUT_URI:-}
       OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-HD ERP}
+      OIDC_USERNAME_CLAIM: ${OIDC_USERNAME_CLAIM:-preferred_username}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-en_US}
+      # Client cho permission API (phase 5) chỉ tạo bằng
+      # register-outline-oauth-client; tắt đăng ký động.
+      OAUTH_DISABLE_DCR: ${OAUTH_DISABLE_DCR:-true}
     volumes:
       - outline-file-storage:/var/lib/outline/data
     healthcheck:

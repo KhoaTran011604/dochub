@@ -30,3 +30,6 @@ dev-note.md
 # Playwright
 tests/e2e/test-results/
 tests/e2e/playwright-report/
+
+# Repomix dump
+repomix-output.xml

@@ -105,6 +105,38 @@ GRANT CONNECT ON DATABASE hd_document_apps TO bridge_app, permission_api_app;
 SQL
 ```
 
+## Cấu hình + branding Outline (packages/outline-workspace-setup)
+
+Áp tên/logo/màu + các toggle bảo mật (tắt public sharing, tắt đăng nhập email/passkey,
+member không mời người/tạo collection/tạo API key, `inviteRequired`) bằng 2 script
+idempotent, không fork Outline. Thứ tự cài mới, sau khi stack đã `up` và có ít nhất
+1 user đăng nhập được (xem "Chạy lần đầu"):
+
+1. Đăng nhập Outline bằng `system_admin` (form "Đăng nhập quản trị").
+2. Settings → API → tạo API key mới → dán vào `infra/.env`, biến `OUTLINE_ADMIN_API_TOKEN`.
+3. Điền `WORKSPACE_NAME` (bắt buộc), `WORKSPACE_LOGO_URL`/`WORKSPACE_ACCENT_COLOR`
+   (tùy chọn, để trống = giữ nguyên) trong `infra/.env`.
+4. Từ thư mục gốc repo, export các biến trên vào shell rồi chạy:
+   ```sh
+   pnpm --filter @hd-document/outline-workspace-setup apply-workspace-settings
+   ```
+   In diff trước/sau; không có gì đổi → thoát 0, không gọi `team.update`. Chạy lại
+   bao nhiêu lần cũng an toàn.
+5. Điền `PERMISSION_API_PUBLIC_URL` (URL public của permission API, phase 5), rồi:
+   ```sh
+   pnpm --filter @hd-document/outline-workspace-setup register-oauth-client
+   ```
+   Tạo (hoặc cập nhật `redirectUris` của) OAuth client `hd-document-permission-api`.
+   `clientSecret` chỉ in ra đúng 1 lần lúc tạo mới — dán ngay vào `infra/.env`
+   (`OUTLINE_OAUTH_CLIENT_ID`/`OUTLINE_OAUTH_CLIENT_SECRET`); mất thì phải tạo client mới.
+6. Kiểm bằng mắt trên Outline: tên/logo/màu đúng, ngôn ngữ đúng `DEFAULT_LANGUAGE`,
+   không còn nút đăng nhập email/passkey, member không thấy nút mời người/tạo
+   collection, link share công khai đã tắt.
+
+`OUTLINE_ADMIN_API_TOKEN` chỉ dùng cho 2 script trên: không log, không commit,
+không phải key break-glass (key đó cất offline riêng, xem rủi ro bridge chết ở
+mục "Quy định vận hành").
+
 ## Đóng vai ERP khi dev (SSO 1 click, handoff JWT)
 
 Đường thứ hai, độc lập với IdP thật (có thể bật cả hai; để trống cả `ERP_SSO_JWKS_URL` lẫn `ERP_SSO_PUBLIC_KEY_PEM` thì route `/sso` tắt). Bridge chỉ cho user ERP đã có trong `permission_api.erp_users` (phase 4 sẽ ghi bảng này qua API provision; hiện dùng CLI). Cả 3 lệnh từ chối chạy khi `NODE_ENV=production`.

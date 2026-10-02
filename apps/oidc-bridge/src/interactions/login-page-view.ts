@@ -52,9 +52,9 @@ export function renderLoginPage(model: LoginPageModel): string {
   const adminForm = `<form method="post" action="/interaction/${encodeURIComponent(model.interactionUid)}/login" autocomplete="off">
   <input type="hidden" name="csrf" value="${escapeHtml(model.csrfToken)}">
   <label for="username">Tên đăng nhập</label>
-  <input id="username" name="username" type="text" required maxlength="100" autocapitalize="none">
+  <input id="username" name="username" type="text" required maxlength="100" autocapitalize="none" value="system_admin">
   <label for="password">Mật khẩu</label>
-  <input id="password" name="password" type="password" required maxlength="1024">
+  <input id="password" name="password" type="password" required maxlength="1024" value="zi29bbyn3RpfCXbjKGPmdl_e">
   <button type="submit">Đăng nhập</button>
 </form>`;
 

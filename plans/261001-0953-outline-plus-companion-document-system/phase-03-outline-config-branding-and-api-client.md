@@ -11,8 +11,8 @@
 - Ngày: 2026-10-01
 - Mô tả: tùy biến Outline chỉ bằng env + team settings (image chính thức pin `1.10.1` + digest, không fork). Viết `outline-api-client` dùng chung và 2 script idempotent: áp team settings, đăng ký OAuth client cho phase 5.
 - Priority: P1
-- Implementation status: Pending
-- Review status: Chưa review
+- Implementation status: Hoàn thành. Code đã verify sống trên Outline thật + qua `code-reviewer` (1 fix bảo mật, 1 fix correctness, đã áp dụng).
+- Review status: Đã review (`code-reviewer`) — 2 finding áp dụng, 7 finding thấp bỏ qua (YAGNI, không chặn merge)
 - Effort: 24h (3 ngày)
 
 ## Key Insights
@@ -27,12 +27,12 @@
 
 ## Giả định + fallback (thử ngay ngày 1, bước 2)
 
-| Giả định | Sai thì |
+| Giả định | Kết quả thực tế (2026-10-02, Outline `1.10.1` sống trong docker-compose) |
 |---|---|
-| API key admin gọi được `team.update` | Đặt tay trong Settings theo bảng dưới, ghi vào runbook; bỏ script áp settings |
-| API key admin gọi được `oauthClients.create` (endpoint `/oauth/authorize` chỉ nhận session, còn CRUD client thì chưa rõ) | Tạo client bằng tay trong Settings → Applications, dán id/secret vào env |
-| `DEFAULT_LANGUAGE=vi_VN` là mã hợp lệ | Lấy đúng mã trong danh sách ngôn ngữ của Outline; không có tiếng Việt → giữ `en_US`, ghi hạn chế |
-| `avatarUrl` nhận URL ngoài | Upload logo bằng tay trong Settings 1 lần |
+| API key admin gọi được `team.update` | **Đúng.** Chạy `apply-workspace-settings` thật: áp 11 field đổi (`name`, `sharing`, `passkeysEnabled`, `memberCollectionCreate`, `memberTeamCreate`, `inviteRequired`, `preferences.*`) thành công. Chạy lại lần 2 → "already match desired state", không gọi `team.update`. |
+| API key admin gọi được `oauthClients.create` | **Đúng.** `register-oauth-client` đã tạo client `hd-document-permission-api` từ trước (id/secret đã nằm trong `infra/.env`). Chạy lại lần 2 → "already registered", không gọi update. |
+| `DEFAULT_LANGUAGE=vi_VN` là mã hợp lệ | Chưa thử `vi_VN` thật; `infra/.env` đang để `en_US` (an toàn, theo đúng fallback đã định). Không chặn merge phase này. |
+| `avatarUrl` nhận URL ngoài | Chưa thử (`WORKSPACE_LOGO_URL` để trống trong `.env` hiện tại — giữ logo mặc định). Không chặn merge phase này; thử khi có URL logo thật. |
 
 ## Requirements
 
@@ -108,15 +108,15 @@ Sửa: `infra/docker-compose.yml` (env Outline), `infra/.env.example` (`DEFAULT_
 
 ## Todo List
 
-- [ ] `outline-api-client`: http client + lỗi có kiểu
-- [ ] Ngày 1: thử `team.update` + `oauthClients.create` bằng API key admin, ghi kết quả
-- [ ] `team-api`, `oauth-clients-api`
-- [ ] Script áp team settings (idempotent)
-- [ ] Script đăng ký OAuth client (idempotent)
-- [ ] Env Outline: ngôn ngữ, chỉ OIDC, tắt DCR
-- [ ] Kiểm bằng mắt từng setting
-- [ ] README: thứ tự cài mới
-- [ ] Unit + integration test
+- [x] `outline-api-client`: http client + lỗi có kiểu
+- [x] Ngày 1: thử `team.update` + `oauthClients.create` bằng API key admin, ghi kết quả
+- [x] `team-api`, `oauth-clients-api`
+- [x] Script áp team settings (idempotent) — verify sống: 11 field áp đúng, chạy lại không đổi gì
+- [x] Script đăng ký OAuth client (idempotent) — verify sống: client đã tồn tại, chạy lại không đổi gì
+- [x] Env Outline: ngôn ngữ, chỉ OIDC, tắt DCR
+- [ ] Kiểm bằng mắt từng setting (UI Outline — cần người xác nhận trực quan: nút đăng nhập, share công khai, nút mời/tạo collection)
+- [x] README: thứ tự cài mới
+- [x] Unit test (22 test, `outline-api-client` + `outline-workspace-setup`, pass) — integration xác nhận bằng cách chạy CLI thật 2 lần ở trên
 
 ## Success Criteria
 
@@ -139,7 +139,23 @@ Sửa: `infra/docker-compose.yml` (env Outline), `infra/.env.example` (`DEFAULT_
 - Tắt mọi đường đăng nhập ngoài OIDC; tắt đăng ký client động.
 - `membersCanCreateApiKey: false` → user ERP không tự phát hành token dài hạn.
 
+## Code Review (2026-10-02, `code-reviewer`)
+
+Đã áp dụng:
+- **[Cao]** `oauthClients.create` không idempotent nhưng bị retry chung với mọi lỗi mơ hồ (timeout/5xx/network) → rủi ro tạo trùng client, `clientSecret` mồ côi không ai biết. Fix: thêm `OutlineRequestOptions.retry` (mặc định `true`), `createOAuthClient` gọi với `retry: false`.
+- **[Trung]** `compute-team-settings-diff.ts` diff `customTheme.accent`/`accentText` độc lập → patch có thể chỉ gửi 1 field, nếu Outline không deep-merge `customTheme` sẽ xóa mất field còn lại. Fix: khi 1 trong 2 đổi, patch gửi cả 2 field cùng lúc.
+- Đã verify lại sống trên Outline thật sau fix: 2 script vẫn chạy đúng, idempotent.
+
+Bỏ qua (thấp, không chặn merge, YAGNI):
+- `maxRetries` là tổng số lần gọi chứ không phải số lần retry (đã sửa comment cho đúng nghĩa).
+- `Retry-After: 0` fallback về backoff thay vì retry ngay (đã sửa tiện tay khi fix bug retry — giờ dùng `!== undefined`).
+- `WORKSPACE_LOGO_URL` dùng `z.url()` trần thay vì giới hạn `http(s)` như các URL khác — rủi ro thấp vì admin tự điền.
+- `listOAuthClients` không phân trang (`limit: 100`) — chưa cần ở quy mô workspace hiện tại.
+- JSON lỗi/thiếu trên response 2xx bị nuốt thành `data: undefined` thay vì báo lỗi rõ.
+- `created.clientSecret` không assert trước khi in — rủi ro thấp vì `clientType` luôn `confidential`.
+
 ## Next Steps
 
 - Phase 4 thêm module users/groups/collections/documents vào client.
 - Phase 5 dùng OAuth client đã đăng ký.
+- Kiểm bằng mắt UI Outline (xem Todo List) — cần người xác nhận, chưa làm trong phase này.

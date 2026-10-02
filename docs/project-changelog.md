@@ -27,6 +27,35 @@
 - User phải có trong `erp_users` (active) → link `/upstream/callback` → verify `id_token` (RS256, `iss`, `aud`, `exp`) → match `sub` với `erp_user_id` → sso_handoffs → finishLogin.
 - Production reject HTTP upstream issuer; cookie `hd_upstream_login` (signed, httpOnly, lax, path `/upstream`, 10m, read-once).
 
+## [2026-10-02] Phase 03: Cấu hình + branding Outline, Outline API client
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `packages/outline-api-client`, `packages/outline-workspace-setup`, `infra/`
+
+### Đã thêm
+
+- **`packages/outline-api-client`:** Typed HTTP client wrapping Outline JSON-RPC API, built on fetch. Handles timeout (30s), retry with backoff (429/5xx up to 3 times, honor `Retry-After`), error mapping to typed exceptions.
+- **`packages/outline-workspace-setup`:** Two idempotent CLI scripts:
+  - `apply-outline-workspace-settings`: reads desired state from env, calls `team.update` only if diff detected (name, logo, theme, branding, security settings).
+  - `register-outline-oauth-client`: `oauthClients.list` → match by name → create if missing (client ID/secret for phase 5), or update if redirect URI differs.
+- **Infra updates:** `.env.example` + `docker-compose.yml` with Outline env (OIDC only, disable DCR, language, admin API token); `README.md` install sequence (login `system_admin` → create API key → run scripts).
+
+### Đã sửa (Code Review)
+
+- **[Cao]** `oauthClients.create` retry on all errors → risk of duplicate clients with orphaned secrets. Added `retry: false` option, `createOAuthClient` uses it.
+- **[Trung]** `customTheme.accent`/`accentText` patched independently → partial overwrite if one changes. Fixed to always send both fields together in patch.
+
+### Kiểm thử
+
+- **Unit:** 23 tests (http client, API layers, settings diff, CLI parsing) pass.
+- **Integration:** Live against Outline 1.10.1 Docker container. Both scripts ran twice: second run idempotent (no-op).
+  - `team.update`: 11 fields applied (name, logo, theme colors, sharing, guestSignin, passkeys, inviteRequired, membersCanInvite, memberCollectionCreate, memberTeamCreate, membersCanCreateApiKey).
+  - `oauthClients.create`: Client already existed, no retry; matched by name, verified no duplicate.
+
+### Ghi chú
+
+- Visual UI confirmation (login buttons, share toggle, member permission buttons) flagged as open Todo, not blocking merge. Browser verification pending.
+
 ## [2026-10-02] Nút "Đăng nhập qua ERP" trên form login của bridge
 
 **Status:** ✓ Hoàn thành  

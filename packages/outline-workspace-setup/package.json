@@ -1,0 +1,17 @@
+{
+  "name": "@hd-document/outline-workspace-setup",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "apply-workspace-settings": "tsx src/apply-outline-workspace-settings-cli.ts",
+    "register-oauth-client": "tsx src/register-outline-oauth-client-cli.ts"
+  },
+  "dependencies": {
+    "@hd-document/outline-api-client": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

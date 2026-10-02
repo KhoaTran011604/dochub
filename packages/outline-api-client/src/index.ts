@@ -13,3 +13,23 @@ export {
   createOAuthClient,
   updateOAuthClient,
 } from "./oauth-clients-api.ts";
+export {
+  inviteUsers,
+  listUsers,
+  findUserByEmail,
+  suspendUser,
+  activateUser,
+} from "./users-api.ts";
+export {
+  createGroup,
+  listGroups,
+  findGroupByExternalId,
+  addUserToGroup,
+  removeUserFromGroup,
+} from "./groups-api.ts";
+export { createCollection, addGroupToCollection } from "./collections-api.ts";
+export {
+  getDocumentInfo,
+  addUserToDocument,
+  removeUserFromDocument,
+} from "./documents-api.ts";

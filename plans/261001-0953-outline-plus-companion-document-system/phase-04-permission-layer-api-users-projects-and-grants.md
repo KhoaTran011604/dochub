@@ -11,8 +11,8 @@
 - Ngày: 2026-10-01
 - Mô tả: app headless `apps/outline-permission-api` (thay `apps/companion`, không có UI). ERP ĐẨY quyền qua API; service áp vào Outline ngay bằng admin token. Không có job kéo/sync.
 - Priority: P1
-- Implementation status: Pending
-- Review status: Chưa review
+- Implementation status: Hoàn thành code + test (unit) + smoke test sống trên Outline thật. Còn thiếu: xác nhận bằng mắt qua trình duyệt (SSO lần đầu + xem đúng quyền trong UI Outline — xem Next Steps).
+- Review status: Đang review (`code-reviewer`)
 - Effort: 56h (7 ngày)
 
 ## Key Insights
@@ -47,14 +47,16 @@ Rủi ro mới: ERP không biết `sub` IdP của user (nếu ERP dùng id khác
 
 ## Giả định + fallback (thử ngay ngày 1, bước 2)
 
-| Giả định | Sai thì |
-|---|---|
-| `users.invite` + `suppressEmail` chạy khi không có SMTP, trả `users[].id` | Bỏ pre-provision + tắt `inviteRequired`: user tạo ở lần SSO đầu; upsert tra id qua `users.list`; cấp quyền trước lần login đầu → `409 USER_NOT_IN_OUTLINE`, ERP gọi lại sau |
-| User đã invite login lần đầu qua bridge → đúng account đó (khớp email verified), quyền cấp trước vẫn còn | Như trên |
-| User chỉ có quyền mức node (không thuộc collection) mở + sửa được doc và doc con | Ghi hạn chế: quyền mức node chỉ dùng kèm role dự án `viewer` trở lên |
-| `collections.create` với `permission: null` cho collection private | Tạo xong gọi `collections.update` hạ quyền mặc định |
-| `groups.add_user` lặp lại / `remove_user` với người không thuộc group không lỗi | Bắt lỗi tương ứng, coi là thành công |
-| User role `viewer` không sửa được doc dù có `read_write` | Đã xử lý: invite luôn với role `member` |
+| Giả định | Sai thì | Kết quả thực tế (2026-10-02, Outline `1.10.1` sống trong docker-compose) |
+|---|---|---|
+| `users.invite` + `suppressEmail` chạy khi không có SMTP, trả `users[].id` | Bỏ pre-provision + tắt `inviteRequired`: user tạo ở lần SSO đầu; upsert tra id qua `users.list`; cấp quyền trước lần login đầu → `409 USER_NOT_IN_OUTLINE`, ERP gọi lại sau | **Đúng.** `PUT /users/{erpUserId}` và `POST /users/batch-upsert` gọi `users.invite` thật (không SMTP), nhận lại `users[].id`; gọi lại cùng email không tạo trùng (`users.list` tìm thấy trước). |
+| User đã invite login lần đầu qua bridge → đúng account đó (khớp email verified), quyền cấp trước vẫn còn | Như trên | **Chưa thử bằng trình duyệt thật** (cần user thật trên IdP `idp.hdwebsoft.co` khớp `sub`). Đã xác nhận gián tiếp: `outlineUserId` lưu đúng, quyền group/document gắn vào đúng id đó. Việc SSO lần đầu + xem đúng doc cần người xác nhận bằng mắt — để ở mục Next Steps. |
+| User chỉ có quyền mức node (không thuộc collection) mở + sửa được doc và doc con | Ghi hạn chế: quyền mức node chỉ dùng kèm role dự án `viewer` trở lên | Chưa thử bằng mắt (cần xem trong UI Outline); `documents.add_user`/`remove_user` gọi thành công qua API, ghi hạn chế này vào tài liệu ERP (nháp) như kế hoạch. |
+| `collections.create` với `permission: null` cho collection private | Tạo xong gọi `collections.update` hạ quyền mặc định | **Đúng.** `collections.create({ permission: null })` chạy thẳng, không cần gọi `collections.update` bù. |
+| `groups.add_user` lặp lại / `remove_user` với người không thuộc group không lỗi | Bắt lỗi tương ứng, coi là thành công | **Đúng với `add_user`** (gọi lại cùng role không lỗi). `remove_user` khi gọi đổi role (gỡ khỏi 2 group còn lại, kể cả group chưa từng thuộc) **không lỗi trên Outline thật** — code vẫn giữ nhánh bắt lỗi phòng hờ (`groups-api.ts`) nhưng chưa phải dùng tới. |
+| User role `viewer` không sửa được doc dù có `read_write` | Đã xử lý: invite luôn với role `member` | Giữ nguyên quyết định: mọi user invite role `member`. Chưa thử bằng mắt khác biệt `viewer` vs `member` trong UI. |
+
+**Phát hiện khi test sống (đã sửa):** `groups.list` trả `data` dạng `{ groups: [...], groupMemberships: [...] }` — KHÁC với `users.list` (data là mảng phẳng). `listGroups` ban đầu coi `data` là mảng, gây lỗi `groups.find is not a function` khi tạo dự án. Đã sửa `packages/outline-api-client/src/groups-api.ts` để bóc `data.groups`; verify lại sống: tạo dự án, gán/đổi role, cấp/thu quyền node đều chạy đúng, gọi lại idempotent (không tạo trùng collection/group, không lỗi).
 
 ## Requirements
 
@@ -150,18 +152,18 @@ Sửa: `infra/docker-compose.yml` (service `outline-permission-api`, port 4100),
 
 ## Todo List
 
-- [ ] Client: users, groups, collections, documents (permission)
-- [ ] Ngày 1: invite → cấp quyền → SSO lần đầu, ghi kết quả 6 giả định
-- [ ] Khung app + Dockerfile + compose
-- [ ] Migration 0003
-- [ ] Service key: auth, scope, phạm vi dự án, CLI
-- [ ] Rate limit, giới hạn body, audit
-- [ ] Users: upsert, batch, deactivate, activate
-- [ ] Projects: collection + 3 group
-- [ ] Cấp/thu role dự án
-- [ ] Cấp/thu quyền mức node
-- [ ] Integration test quyền với Outline thật
-- [ ] Nháp tài liệu API
+- [x] Client: users, groups, collections, documents (permission)
+- [x] Ngày 1: invite → cấp quyền → SSO lần đầu (qua API; chưa qua trình duyệt), ghi kết quả 6 giả định
+- [x] Khung app + Dockerfile + compose
+- [x] Migration 0003
+- [x] Service key: auth, scope, phạm vi dự án, CLI
+- [x] Rate limit, giới hạn body, audit
+- [x] Users: upsert, batch, deactivate, activate
+- [x] Projects: collection + 3 group
+- [x] Cấp/thu role dự án
+- [x] Cấp/thu quyền mức node
+- [x] Integration test quyền với Outline thật (API, qua curl thủ công — chưa có file test tích hợp tự động)
+- [ ] Nháp tài liệu API cho ERP (chưa viết)
 
 ## Success Criteria
 

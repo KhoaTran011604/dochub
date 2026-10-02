@@ -76,3 +76,51 @@ export interface OutlineOAuthClientCreateInput {
 export type OutlineOAuthClientUpdateInput = Partial<
   Omit<OutlineOAuthClientCreateInput, "name">
 > & { id: string };
+
+export type OutlineUserRole = "admin" | "member" | "viewer" | "guest";
+
+export interface OutlineUser {
+  id: string;
+  name: string;
+  email: string;
+  role: OutlineUserRole;
+  isSuspended: boolean;
+}
+
+export interface OutlineUserInviteRequest {
+  email: string;
+  name: string;
+  role?: OutlineUserRole;
+}
+
+export interface OutlineInviteUsersInput {
+  invites: OutlineUserInviteRequest[];
+  suppressEmail?: boolean;
+}
+
+/** Field `users[]` chỉ chứa user THỰC SỰ được mời; email đã tồn tại bị lọc ra. */
+export interface OutlineInviteUsersResult {
+  sent: string[];
+  users: OutlineUser[];
+}
+
+/** Permission áp dụng cho cả collection và document. */
+export type OutlinePermission = "read" | "read_write" | "admin";
+
+export interface OutlineGroup {
+  id: string;
+  name: string;
+  /** Quy ước nội bộ `<projectKey>:<role>` để tra ngược (xem `project-group-naming-convention`). */
+  externalId: string | null;
+}
+
+export interface OutlineCollection {
+  id: string;
+  name: string;
+  permission: OutlinePermission | null;
+}
+
+export interface OutlineDocumentInfo {
+  id: string;
+  collectionId: string;
+}

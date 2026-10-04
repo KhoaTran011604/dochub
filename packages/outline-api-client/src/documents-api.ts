@@ -14,8 +14,9 @@ export async function addUserToDocument(
   documentId: string,
   userId: string,
   permission: OutlinePermission,
+  sendsEmail?: boolean,
 ): Promise<void> {
-  await client.request("documents.add_user", { id: documentId, userId, permission });
+  await client.request("documents.add_user", { id: documentId, userId, permission, sendsEmail });
 }
 
 export async function removeUserFromDocument(

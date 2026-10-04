@@ -28,6 +28,14 @@ const environmentSchema = z.object({
   OUTLINE_ADMIN_API_TOKEN: z.string().min(1),
   /** Không bao giờ suspend hay đổi quyền account mang email này qua API. */
   SYSTEM_ADMIN_EMAIL: z.email(),
+
+  /** SMTP Configuration for sending emails */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  /** The "From" email address to use for sent emails */
+  MAIL_FROM_EMAIL: z.string().default("HD Document <no-reply@hd-document.example.com>"),
 });
 
 export type EnvironmentConfig = z.infer<typeof environmentSchema>;

@@ -9,6 +9,7 @@ import type { AuthenticatedServiceClient } from "../http/service-key-authenticat
 import type { ProjectCollectionMapRepository } from "../projects/project-collection-map-repository.ts";
 import type { ErpUserRepository } from "../users/erp-user-repository.ts";
 import { resolveDocumentProjectScope } from "./resolve-document-project-scope.ts";
+import type { MailerService } from "../mail/mailer.ts";
 
 export interface SetDocumentMemberPermissionService {
   setPermission(
@@ -28,26 +29,36 @@ export function createSetDocumentMemberPermissionService(deps: {
   outlineClient: OutlineHttpClient;
   mapRepository: ProjectCollectionMapRepository;
   erpUserRepository: ErpUserRepository;
+  mailer: MailerService;
+  outlineUrl: string;
 }): SetDocumentMemberPermissionService {
-  async function loadOutlineUserId(erpUserId: string): Promise<string> {
+  async function loadOutlineUser(erpUserId: string): Promise<{ outlineUserId: string; email: string }> {
     const user = await deps.erpUserRepository.findByErpUserId(erpUserId);
     if (!user?.outlineUserId) {
       throw notFound("USER_NOT_IN_OUTLINE", `ERP user "${erpUserId}" has no Outline account yet.`);
     }
-    return user.outlineUserId;
+    return { outlineUserId: user.outlineUserId, email: user.email };
   }
 
   return {
     async setPermission(serviceClient, documentId, erpUserId, permission) {
       await resolveDocumentProjectScope(deps.outlineClient, deps.mapRepository, serviceClient, documentId);
-      const outlineUserId = await loadOutlineUserId(erpUserId);
-      await addUserToDocument(deps.outlineClient, documentId, outlineUserId, permission);
+      const user = await loadOutlineUser(erpUserId);
+      // Suppress Outline's built-in email by passing false, and send our own
+      await addUserToDocument(deps.outlineClient, documentId, user.outlineUserId, permission, false);
+
+      await deps.mailer.sendDocumentInviteEmail({
+        toEmail: user.email,
+        documentId,
+        documentUrl: `${deps.outlineUrl}/doc/${documentId}`,
+        permission,
+      });
     },
 
     async removeMember(serviceClient, documentId, erpUserId) {
       await resolveDocumentProjectScope(deps.outlineClient, deps.mapRepository, serviceClient, documentId);
-      const outlineUserId = await loadOutlineUserId(erpUserId);
-      await removeUserFromDocument(deps.outlineClient, documentId, outlineUserId);
+      const user = await loadOutlineUser(erpUserId);
+      await removeUserFromDocument(deps.outlineClient, documentId, user.outlineUserId);
     },
   };
 }

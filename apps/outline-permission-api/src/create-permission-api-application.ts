@@ -22,6 +22,7 @@ import { createErpUserRepository } from "./users/erp-user-repository.ts";
 import { createSetErpUserActiveStateService } from "./users/set-erp-user-active-state-service.ts";
 import { createUpsertErpUsersService } from "./users/upsert-erp-users-service.ts";
 import { registerUsersRoutes } from "./users/users-routes.ts";
+import { createMailerService } from "./mail/mailer.ts";
 
 /**
  * Ráp app: route công khai (/healthz) → xác thực service key → audit → rate
@@ -38,6 +39,14 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
   const erpUserRepository = createErpUserRepository(pool);
   const mapRepository = createProjectCollectionMapRepository(pool);
   const audit = createApiAuditLogger(pool);
+
+  const mailer = createMailerService(
+    config.SMTP_HOST,
+    config.SMTP_PORT,
+    config.SMTP_USER,
+    config.SMTP_PASS,
+    config.MAIL_FROM_EMAIL
+  );
 
   const upsertService = createUpsertErpUsersService({
     repository: erpUserRepository,
@@ -58,6 +67,8 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     outlineClient,
     mapRepository,
     erpUserRepository,
+    mailer,
+    outlineUrl: config.OUTLINE_URL,
   });
 
   const app = new Koa();

@@ -99,6 +99,13 @@ services:
       OIDC_USERNAME_CLAIM: ${OIDC_USERNAME_CLAIM:-preferred_username}
       OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
       DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-en_US}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_REPLY_EMAIL: ${SMTP_REPLY_EMAIL:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
       # Client cho permission API (phase 5) chỉ tạo bằng
       # register-outline-oauth-client; tắt đăng ký động.
       OAUTH_DISABLE_DCR: ${OAUTH_DISABLE_DCR:-true}

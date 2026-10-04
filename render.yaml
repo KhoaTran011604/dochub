@@ -6,12 +6,17 @@ databases:
     databaseName: outline
     user: outline
     plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Cho phep ket noi tu ngoai de chay migration
 
 services:
   # 1. Redis cho Outline cache & session
   - type: keyvalue
     name: dochub-redis
     plan: free
+    ipAllowList: [] # Chi cho phep ket noi noi bo tu Outline
+
 
   # 2. OIDC Bridge (Identity Provider & SSO cho Outline)
   - type: web

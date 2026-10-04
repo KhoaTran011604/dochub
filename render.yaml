@@ -1,0 +1,155 @@
+# Render Blueprint for Dochub Stack (Outline + OIDC Bridge + Permission API + Postgres + Redis)
+# Documentation: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: dochub-postgres
+    databaseName: outline
+    user: outline
+    plan: free
+
+services:
+  # 1. Redis cho Outline cache & session
+  - type: keyvalue
+    name: dochub-redis
+    plan: free
+
+  # 2. OIDC Bridge (Identity Provider & SSO cho Outline)
+  - type: web
+    name: dochub-oidc-bridge
+    runtime: docker
+    dockerfilePath: apps/oidc-bridge/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4001"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: BRIDGE_PUBLIC_URL
+        # https://<tên-bridge-service>.onrender.com
+        sync: false
+      - key: BRIDGE_DATABASE_URL
+        # postgres://bridge_app:<BRIDGE_DB_PASSWORD>@<dochub-postgres-internal-host>:5432/hd_document_apps
+        sync: false
+      - key: OUTLINE_URL
+        # https://<tên-outline-service>.onrender.com
+        sync: false
+      - key: OIDC_CLIENT_ID
+        value: outline
+      - key: OIDC_CLIENT_SECRET
+        generateValue: true
+      - key: BRIDGE_COOKIE_KEYS
+        generateValue: true
+      - key: BRIDGE_SIGNING_JWKS
+        # Chạy lệnh: pnpm --filter @hd-document/oidc-bridge generate:signing-jwks
+        sync: false
+      - key: SYSTEM_ADMIN_USERNAME
+        value: admin
+      - key: SYSTEM_ADMIN_EMAIL
+        value: admin@example.com
+      - key: SYSTEM_ADMIN_PASSWORD_HASH
+        # Chạy lệnh hash mật khẩu admin theo README
+        sync: false
+      - key: SSO_REQUIRE_REFERRER
+        value: "false"
+
+  # 3. Outline Wiki
+  - type: web
+    name: dochub-outline
+    runtime: image
+    image:
+      url: docker.io/outlinewiki/outline:1.10.1
+    plan: free
+    healthCheckPath: /_health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: URL
+        # https://<tên-outline-service>.onrender.com
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: UTILS_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dochub-postgres
+          property: connectionString
+      - key: PGSSLMODE
+        value: disable
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: dochub-redis
+          property: connectionString
+      - key: FILE_STORAGE
+        value: local
+      - key: FILE_STORAGE_LOCAL_ROOT_DIR
+        value: /var/lib/outline/data
+      - key: FORCE_HTTPS
+        value: "false"
+      - key: ENABLE_UPDATES
+        value: "false"
+      - key: RATE_LIMITER_REQUESTS
+        value: "1000"
+      - key: OIDC_CLIENT_ID
+        value: outline
+      - key: OIDC_CLIENT_SECRET
+        fromService:
+          type: web
+          name: dochub-oidc-bridge
+          envVarKey: OIDC_CLIENT_SECRET
+      - key: OIDC_AUTH_URI
+        # https://<tên-bridge-service>.onrender.com/auth
+        sync: false
+      - key: OIDC_TOKEN_URI
+        # https://<tên-bridge-service>.onrender.com/token
+        sync: false
+      - key: OIDC_USERINFO_URI
+        # https://<tên-bridge-service>.onrender.com/me
+        sync: false
+      - key: OIDC_LOGOUT_URI
+        # https://<tên-bridge-service>.onrender.com/logout
+        sync: false
+      - key: OIDC_DISPLAY_NAME
+        value: Dochub SSO
+      - key: OIDC_USERNAME_CLAIM
+        value: preferred_username
+      - key: OIDC_SCOPES
+        value: "openid profile email"
+      - key: DEFAULT_LANGUAGE
+        value: en_US
+      - key: OAUTH_DISABLE_DCR
+        value: "true"
+
+  # 4. Outline Permission API (Đồng bộ user & quyền từ ERP)
+  - type: web
+    name: dochub-permission-api
+    runtime: docker
+    dockerfilePath: apps/outline-permission-api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4100"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: PERMISSION_API_DATABASE_URL
+        # postgres://permission_api_app:<PERMISSION_API_DB_PASSWORD>@<dochub-postgres-internal-host>:5432/hd_document_apps
+        sync: false
+      - key: OUTLINE_URL
+        # https://<tên-outline-service>.onrender.com
+        sync: false
+      - key: OUTLINE_ADMIN_API_TOKEN
+        # Tạo sau khi đăng nhập admin Outline lần đầu (Settings -> API)
+        sync: false
+      - key: SYSTEM_ADMIN_EMAIL
+        value: admin@example.com

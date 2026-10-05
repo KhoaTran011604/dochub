@@ -1,12 +1,17 @@
-import type { Middleware } from "koa";
+import type { Context, Middleware } from "koa";
 import { getServiceClient } from "./service-key-authentication-middleware.ts";
 
 export interface RateLimitOptions {
   windowMs: number;
   maxRequests: number;
+  /** Khóa bucket; mặc định = id service client (route đã xác thực). Route công khai dùng IP. */
+  keyOf?: (ctx: Context) => string;
 }
 
-const DEFAULT_OPTIONS: RateLimitOptions = { windowMs: 60_000, maxRequests: 120 };
+const DEFAULT_OPTIONS = { windowMs: 60_000, maxRequests: 120 };
+
+/** Quá ngưỡng này thì quét bỏ bucket hết hạn (khóa theo IP có thể tăng vô hạn). */
+const MAX_BUCKETS = 10_000;
 
 interface Bucket {
   count: number;
@@ -22,15 +27,19 @@ export function createInMemoryRateLimitMiddleware(
   options: Partial<RateLimitOptions> = {},
 ): Middleware {
   const { windowMs, maxRequests } = { ...DEFAULT_OPTIONS, ...options };
+  const keyOf = options.keyOf ?? ((ctx: Context) => getServiceClient(ctx.state).id);
   const buckets = new Map<string, Bucket>();
 
   return async (ctx, next) => {
-    const client = getServiceClient(ctx.state);
+    const key = keyOf(ctx);
     const now = Date.now();
-    let bucket = buckets.get(client.id);
+    if (buckets.size >= MAX_BUCKETS) {
+      for (const [bucketKey, old] of buckets) if (now - old.windowStartedAt >= windowMs) buckets.delete(bucketKey);
+    }
+    let bucket = buckets.get(key);
     if (!bucket || now - bucket.windowStartedAt >= windowMs) {
       bucket = { count: 0, windowStartedAt: now };
-      buckets.set(client.id, bucket);
+      buckets.set(key, bucket);
     }
     bucket.count += 1;
 
@@ -42,7 +51,7 @@ export function createInMemoryRateLimitMiddleware(
       ctx.set("Retry-After", String(retryAfterSeconds));
       ctx.status = 429;
       ctx.body = {
-        error: { code: "RATE_LIMITED", message: "Too many requests for this service key." },
+        error: { code: "RATE_LIMITED", message: "Too many requests." },
         requestId: String(ctx.state.requestId ?? ""),
       };
       return;

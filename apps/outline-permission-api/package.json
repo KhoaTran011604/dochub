@@ -15,6 +15,7 @@
   "dependencies": {
     "@hd-document/outline-api-client": "workspace:*",
     "@koa/router": "^15.7.0",
+    "iron-webcrypto": "^2.0.0",
     "koa": "^3.1.1",
     "nodemailer": "^10.0.14",
     "pg": "^8.23.1",

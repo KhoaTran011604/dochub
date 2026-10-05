@@ -42,8 +42,23 @@ async function withOutlineAdminApi<T>(
   const context = await browser.newContext();
   try {
     const page = await context.newPage();
-    // Outline chưa có phiên → tự chuyển sang bridge → form quản trị.
-    await page.goto(e2eEnvironment.outlineUrl);
+    // Outline chưa có phiên → màn login có nút "Continue with HD ERP" (nhiều
+    // bản Outline tự chuyển thẳng sang bridge) → bridge /interaction → form quản trị.
+    // Outline dev vừa bị các spec trước dồn tải (hết pool DB → ERR_EMPTY_RESPONSE): thử lại.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await page.goto(e2eEnvironment.outlineUrl);
+        break;
+      } catch (error) {
+        if (attempt >= 5) throw error;
+        await page.waitForTimeout(3_000);
+      }
+    }
+    const continueButton = page
+      .getByRole("link", { name: /continue with/i })
+      .or(page.getByRole("button", { name: /continue with/i }));
+    await continueButton.or(page.locator("#username")).first().waitFor();
+    if (await continueButton.first().isVisible()) await continueButton.first().click();
     await page.locator("#username").fill(e2eEnvironment.systemAdminUsername);
     await page.locator("#password").fill(e2eEnvironment.systemAdminPassword);
     await page.locator("button[type=submit]").click();

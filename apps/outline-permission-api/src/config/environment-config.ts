@@ -9,6 +9,9 @@ const booleanFlag = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+/** Compose truyền biến chưa đặt thành chuỗi rỗng: coi như không có. */
+const emptyAsUndefined = (value: unknown) => (value === "" ? undefined : value);
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4100),
@@ -28,6 +31,23 @@ const environmentSchema = z.object({
   OUTLINE_ADMIN_API_TOKEN: z.string().min(1),
   /** Không bao giờ suspend hay đổi quyền account mang email này qua API. */
   SYSTEM_ADMIN_EMAIL: z.email(),
+
+  /**
+   * API tạo node với tác giả là user thật (phase 5). Thiếu 1 trong 4 biến
+   * (PUBLIC_URL, OAUTH_CLIENT_ID/SECRET, TOKEN_SEAL_PASSWORD) = tắt cả nhóm route.
+   * PUBLIC_URL: URL trình duyệt của user mở được tới service này (pendingUrl,
+   * redirect URI `{PUBLIC_URL}/oauth/outline/callback` khai báo ở OAuth client).
+   */
+  PERMISSION_API_PUBLIC_URL: z.preprocess(emptyAsUndefined, httpUrl.optional()),
+  OUTLINE_OAUTH_CLIENT_ID: z.preprocess(emptyAsUndefined, z.string().min(1).optional()),
+  OUTLINE_OAUTH_CLIENT_SECRET: z.preprocess(emptyAsUndefined, z.string().min(1).optional()),
+  /** Scope xin ở màn đồng ý; chưa kiểm trên Outline thật (phase-05 bước 1), có thể phải đổi thành `create read`. */
+  OUTLINE_OAUTH_SCOPE: z.preprocess(emptyAsUndefined, z.string().min(1).default("documents:create auth:read")),
+  /** Khóa niêm phong token Outline của user (iron-webcrypto), ≥ 32 ký tự. Đổi khóa = mọi user phải đồng ý lại. */
+  TOKEN_SEAL_PASSWORD: z.preprocess(emptyAsUndefined, z.string().min(32).optional()),
+  PENDING_REQUEST_TTL_DAYS: z.preprocess(emptyAsUndefined, z.coerce.number().int().min(1).max(90).default(7)),
+  /** Link "quay lại ERP" trên dòng lỗi của route trình duyệt. */
+  ERP_PORTAL_URL: z.preprocess(emptyAsUndefined, httpUrl.optional()),
 
   /** SMTP Configuration for sending emails */
   SMTP_HOST: z.string().optional(),

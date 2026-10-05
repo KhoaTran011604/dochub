@@ -1,4 +1,5 @@
 import { activateUser, suspendUser, type OutlineHttpClient } from "@hd-document/outline-api-client";
+import type { RevokeUserOutlineGrant } from "../outline-oauth/revoke-user-outline-grant.ts";
 import { forbidden, notFound } from "../http/api-error.ts";
 import type { ErpUserRepository } from "./erp-user-repository.ts";
 
@@ -26,6 +27,8 @@ export function createSetErpUserActiveStateService(deps: {
   repository: ErpUserRepository;
   outlineClient: OutlineHttpClient;
   systemAdminEmail: string;
+  /** Có khi API tạo node bật: deactivate xóa grant OAuth + thu hồi token của user. */
+  revokeUserGrant?: RevokeUserOutlineGrant | undefined;
 }): SetErpUserActiveStateService {
   async function loadOutlineManagedUser(
     erpUserId: string,
@@ -43,6 +46,7 @@ export function createSetErpUserActiveStateService(deps: {
     async deactivate(erpUserId) {
       const user = await loadOutlineManagedUser(erpUserId);
       await deps.repository.setStatus(erpUserId, "deactivated");
+      await deps.revokeUserGrant?.(erpUserId);
       await suspendUser(deps.outlineClient, user.outlineUserId);
     },
 

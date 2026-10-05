@@ -54,6 +54,20 @@ function recordShownPages(page: Page): string[] {
   return shown;
 }
 
+/**
+ * Outline giờ dừng ở màn login có nút "Continue with HD ERP" thay vì tự chuyển
+ * sang bridge. Bấm nút = bước user duy nhất; handoff của bridge phải hoàn tất
+ * im lặng sau đó (không form, không trang lỗi).
+ */
+async function continueWithErpIfLoginScreen(page: Page): Promise<void> {
+  const button = page
+    .getByRole("link", { name: /continue with hd erp/i })
+    .or(page.getByRole("button", { name: /continue with hd erp/i }));
+  const bridgeForm = page.locator("#username");
+  await button.or(bridgeForm).or(page.getByText(DOCUMENT_TEXT)).first().waitFor({ timeout: 30_000 });
+  if (await button.first().isVisible()) await button.first().click();
+}
+
 async function signedInEmail(page: Page): Promise<string | undefined> {
   const response = await page.request.post(
     `${e2eEnvironment.outlineUrl}/api/auth.info`,
@@ -88,6 +102,7 @@ test.describe("ERP SSO handoff link", () => {
     usedLink = signSsoLink(documentUrl);
 
     await page.goto(usedLink, { referer: e2eEnvironment.erpReferrer });
+    await continueWithErpIfLoginScreen(page);
 
     // Outline mở doc (chưa có phiên) → vòng OIDC qua bridge → quay lại đúng doc.
     await expect(page.getByText(DOCUMENT_TEXT)).toBeVisible({
@@ -102,6 +117,7 @@ test.describe("ERP SSO handoff link", () => {
 
     // Bấm lại link cũ khi đã có phiên Outline: vẫn vào doc (F5 / back không vỡ).
     await page.goto(usedLink, { referer: e2eEnvironment.erpReferrer });
+    await continueWithErpIfLoginScreen(page);
     await expect(page.getByText(DOCUMENT_TEXT)).toBeVisible({
       timeout: 45_000,
     });
@@ -113,6 +129,7 @@ test.describe("ERP SSO handoff link", () => {
     page,
   }) => {
     await page.goto(usedLink, { referer: e2eEnvironment.erpReferrer });
+    await continueWithErpIfLoginScreen(page);
 
     // Token đã dùng → không có handoff → dừng ở form quản trị của bridge.
     await expect(page.locator("#username")).toBeVisible();
@@ -126,6 +143,7 @@ test.describe("ERP SSO handoff link", () => {
     page,
   }) => {
     await page.goto(signSsoLink(documentUrl));
+    await continueWithErpIfLoginScreen(page);
 
     await expect(page.locator("#username")).toBeVisible();
     expect(await signedInEmail(page)).toBeUndefined();
@@ -139,6 +157,7 @@ test.describe("ERP SSO handoff link", () => {
     await page.goto(signSsoLink(documentUrl), {
       referer: e2eEnvironment.erpReferrer,
     });
+    await continueWithErpIfLoginScreen(page);
     await expect(page.getByText(DOCUMENT_TEXT)).toBeVisible({
       timeout: 45_000,
     });

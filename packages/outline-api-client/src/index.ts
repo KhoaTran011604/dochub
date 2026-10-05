@@ -29,7 +29,17 @@ export {
 } from "./groups-api.ts";
 export { createCollection, addGroupToCollection } from "./collections-api.ts";
 export {
+  createDocument,
   getDocumentInfo,
   addUserToDocument,
   removeUserFromDocument,
 } from "./documents-api.ts";
+export { getAuthInfo } from "./auth-api.ts";
+export {
+  exchangeAuthorizationCode,
+  refreshAccessToken,
+  revokeOAuthToken,
+  OutlineOAuthError,
+  type OutlineOAuthCredentials,
+  type OutlineOAuthTokens,
+} from "./oauth-token-api.ts";

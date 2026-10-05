@@ -60,6 +60,8 @@ export interface OutlineOAuthClient {
   avatarUrl: string | null;
   /** Chỉ có trong response của `oauthClients.create`, không có khi `list`/`update`. */
   clientSecret?: string;
+  /** Mã công khai dùng ở /oauth/authorize và /oauth/token (khác `id` UUID). */
+  clientId?: string;
 }
 
 export interface OutlineOAuthClientCreateInput {
@@ -122,5 +124,28 @@ export interface OutlineCollection {
 
 export interface OutlineDocumentInfo {
   id: string;
+  collectionId: string;
+  url?: string;
+}
+
+/** `auth.info`: chỉ field dùng để kiểm danh tính token. */
+export interface OutlineAuthInfo {
+  user: { id: string };
+}
+
+export interface OutlineDocumentCreateInput {
+  /** UUID do client cấp: gọi lại cùng id không tạo doc thứ 2 (idempotency). */
+  id: string;
+  title: string;
+  text: string;
+  collectionId: string;
+  parentDocumentId?: string;
+  publish: boolean;
+}
+
+/** `url` là path tương đối (`/doc/<slug>`), ghép với `OUTLINE_URL` khi trả cho ERP. */
+export interface OutlineCreatedDocument {
+  id: string;
+  url: string;
   collectionId: string;
 }

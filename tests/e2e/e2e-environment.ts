@@ -36,3 +36,18 @@ export const e2eEnvironment = {
     settings.APP_DATABASE_URL ??
     `postgres://hd_document_apps:${required("APP_DB_PASSWORD")}@localhost:${settings.POSTGRES_HOST_PORT ?? "5432"}/hd_document_apps`,
 };
+
+/**
+ * Cấu hình cho test tạo node (phase 5). Service key của test tạo bằng
+ * `manage-service-client create e2e-test --scopes users:write,permissions:write,documents:create --project-keys "*"`
+ * rồi đặt `E2E_PERMISSION_API_SERVICE_KEY` trong tests/e2e/.env. Thiếu key → spec tự skip.
+ */
+export const createNodeEnvironment = {
+  permissionApiUrl: (
+    settings.E2E_PERMISSION_API_URL ??
+    `http://localhost:${settings.PERMISSION_API_HOST_PORT ?? "4100"}`
+  ).replace(/\/+$/, ""),
+  serviceKey: settings.E2E_PERMISSION_API_SERVICE_KEY,
+  /** Token admin của Outline, chỉ để dọn doc test. */
+  outlineAdminToken: settings.OUTLINE_ADMIN_API_TOKEN,
+};

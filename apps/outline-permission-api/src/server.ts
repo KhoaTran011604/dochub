@@ -17,8 +17,11 @@ const server = app.listen(config.PORT, () => {
   console.log(`outline-permission-api listening on :${config.PORT}`);
 });
 
+const stopBackgroundJobs = app.startBackgroundJobs();
+
 function shutdown(signal: string) {
   console.log(`${signal} received, shutting down`);
+  stopBackgroundJobs();
   server.close(() => {
     void pool.end().finally(() => process.exit(0));
   });

@@ -1,4 +1,4 @@
-import { OutlineApiError, OutlineRateLimitedError } from "@hd-document/outline-api-client";
+import { OutlineApiError, OutlineOAuthError, OutlineRateLimitedError } from "@hd-document/outline-api-client";
 import type { Middleware } from "koa";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
@@ -23,6 +23,12 @@ function toErrorBody(error: unknown): { status: number; body: ErrorBody; retryAf
       body: { code: "OUTLINE_RATE_LIMITED", message: "Outline API rate limit exceeded; retry later." },
       retryAfterSeconds: error.retryAfterSeconds,
     };
+  }
+  if (error instanceof OutlineOAuthError) {
+    if (error.status === 429) {
+      return { status: 429, body: { code: "OUTLINE_RATE_LIMITED", message: "Outline OAuth rate limit exceeded; retry later." }, retryAfterSeconds: 60 };
+    }
+    return { status: 502, body: { code: "OUTLINE_ERROR", message: "Outline OAuth call failed." } };
   }
   if (error instanceof OutlineApiError) {
     // Lỗi của Outline (4xx/5xx không map riêng ở trên) → 502, an toàn cho ERP gọi lại.

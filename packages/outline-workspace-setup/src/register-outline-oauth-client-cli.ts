@@ -31,7 +31,7 @@ try {
   if (!existing) {
     const created = await createOAuthClient(client, desired);
     console.log(`Created OAuth client "${created.name}".`);
-    console.log(`OUTLINE_OAUTH_CLIENT_ID=${created.id}`);
+    console.log(`OUTLINE_OAUTH_CLIENT_ID=${created.clientId ?? created.id}`);
     console.log(`OUTLINE_OAUTH_CLIENT_SECRET=${created.clientSecret ?? ""}`);
     console.log("Copy both lines into infra/.env now: the secret is not shown again.");
     process.exit(0);

@@ -6,7 +6,9 @@ import { createApiAuditLogger, createApiAuditMiddleware } from "./audit/api-audi
 import type { EnvironmentConfig } from "./config/environment-config.ts";
 import { registerDocumentMembersRoutes } from "./document-permissions/document-members-routes.ts";
 import { createSetDocumentMemberPermissionService } from "./document-permissions/set-document-member-permission-service.ts";
+import { createNodeFeature } from "./documents/create-node-feature.ts";
 import { createHealthCheckRoute } from "./health/health-check-route.ts";
+import { startExpiredRowsCleanupJob } from "./maintenance/expired-rows-cleanup-job.ts";
 import { createErrorHandlingMiddleware } from "./http/error-handling-middleware.ts";
 import { createInMemoryRateLimitMiddleware } from "./http/in-memory-rate-limit-middleware.ts";
 import {
@@ -29,7 +31,12 @@ import { createMailerService } from "./mail/mailer.ts";
  * limit → route nghiệp vụ (chia 2 nhóm theo scope). Không mở port, không tạo
  * pool → test dùng lại được.
  */
-export function createPermissionApiApplication(config: EnvironmentConfig, pool: pg.Pool): Koa {
+export type PermissionApiApplication = Koa & {
+  /** Bật job nền (dọn dòng hết hạn); trả hàm dừng. Không bật tự động để test không có timer. */
+  startBackgroundJobs: () => () => void;
+};
+
+export function createPermissionApiApplication(config: EnvironmentConfig, pool: pg.Pool): PermissionApiApplication {
   const outlineClient = createOutlineHttpClient({
     baseUrl: config.OUTLINE_INTERNAL_URL ?? config.OUTLINE_URL,
     token: config.OUTLINE_ADMIN_API_TOKEN,
@@ -53,10 +60,18 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     outlineClient,
     systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
   });
+  const createNode = createNodeFeature({
+    config,
+    pool,
+    adminClient: outlineClient,
+    erpUserRepository,
+    mapRepository,
+  });
   const activeStateService = createSetErpUserActiveStateService({
     repository: erpUserRepository,
     outlineClient,
     systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
+    revokeUserGrant: createNode?.revokeUserGrant,
   });
   const memberRoleService = createSetProjectMemberRoleService({
     outlineClient,
@@ -71,12 +86,14 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     outlineUrl: config.OUTLINE_URL,
   });
 
-  const app = new Koa();
+  const app = new Koa() as PermissionApiApplication;
+  app.startBackgroundJobs = () => (createNode ? startExpiredRowsCleanupJob(createNode.cleanup) : () => undefined);
   app.proxy = config.TRUST_PROXY;
   app.use(createErrorHandlingMiddleware());
 
   const publicRouter = new Router();
   publicRouter.get("/healthz", createHealthCheckRoute(pool));
+  createNode?.registerPublicRoutes(publicRouter);
   app.use(publicRouter.routes());
 
   app.use(createServiceKeyAuthenticationMiddleware(serviceClientRepository));
@@ -97,10 +114,16 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
   });
   registerDocumentMembersRoutes(permissionsRouter, { service: documentMemberService });
 
+  const documentsRouter = new Router();
+  documentsRouter.use(requireScope("documents:create"));
+  createNode?.registerServiceRoutes(documentsRouter);
+
   app.use(usersRouter.routes());
   app.use(usersRouter.allowedMethods());
   app.use(permissionsRouter.routes());
   app.use(permissionsRouter.allowedMethods());
+  app.use(documentsRouter.routes());
+  app.use(documentsRouter.allowedMethods());
 
   return app;
 }

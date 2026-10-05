@@ -10,6 +10,16 @@ export interface ApiAuditEntry {
   detail?: Record<string, string | number | boolean | undefined>;
 }
 
+export type AuditDetails = NonNullable<ApiAuditEntry["detail"]>;
+
+/**
+ * Route gắn thêm field vào dòng audit qua `ctx.state.auditDetails`. Chỉ id/key/
+ * status; KHÔNG bao giờ đưa token hay nội dung (title/text) vào đây.
+ */
+export function addAuditDetails(state: Record<string, unknown>, details: AuditDetails): void {
+  state.auditDetails = { ...(state.auditDetails as AuditDetails | undefined), ...details };
+}
+
 export type ApiAuditLogger = (entry: ApiAuditEntry) => Promise<void>;
 
 const MAX_TEXT_LENGTH = 300;
@@ -41,6 +51,8 @@ export function createApiAuditLogger(pool: pg.Pool): ApiAuditLogger {
   };
 }
 
+const withDetail = (detail: unknown) => (detail ? { detail: detail as AuditDetails } : {});
+
 /**
  * Ghi audit cho MỌI request đã qua xác thực key: 1 dòng / request, dù thành
  * công hay lỗi. Chạy sau middleware auth (cần `ctx.state.serviceClient`) và
@@ -61,6 +73,7 @@ export function createApiAuditMiddleware(logger: ApiAuditLogger): Middleware {
         target,
         outcome: ctx.status < 400 ? "success" : "rejected",
         requestId: String(ctx.state.requestId ?? ""),
+        ...withDetail(ctx.state.auditDetails),
       });
     } catch (error) {
       await logger({
@@ -69,7 +82,10 @@ export function createApiAuditMiddleware(logger: ApiAuditLogger): Middleware {
         target,
         outcome: "error",
         requestId: String(ctx.state.requestId ?? ""),
-        detail: { message: error instanceof Error ? error.message : String(error) },
+        detail: {
+          ...(ctx.state.auditDetails as AuditDetails | undefined),
+          message: error instanceof Error ? error.message : String(error),
+        },
       });
       throw error;
     }

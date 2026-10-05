@@ -1,5 +1,40 @@
 # Nhật ký dự án
 
+## [2026-10-05] Phase 7: API cây tài liệu cho ERP đọc cấu trúc document
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/outline-permission-api/src/document-tree/`, `packages/app-database/migrations/0006`, `docs/`
+
+### Đã thêm
+
+- **Endpoint:** `GET /projects/{projectKey}/document-tree?actingErpUserId=<uuid>&parentDocumentId?=<uuid>&depth=<1-5>` (mặc định depth=2).
+  - Response `200 {projectKey, parentDocumentId, truncated, nodes:[{id,title,url,parentDocumentId,hasMoreChildren,children[]}]}`.
+  - Max 1000 nodes/response; vượt → `truncated=true`, gọi lại với `parentDocumentId` = node con.
+  - Chỉ ghi metadata (không nội dung) để tiết kiệm bandwidth.
+- **Scope service key:** `tree:read` (mới). Tạo key: `manage-service-client create ... --scopes tree:read`.
+- **OAuth scope:** Mặc định env `OUTLINE_OAUTH_SCOPE` giờ là `documents:create auth:read read` (đã auto-append `read` nếu thiếu).
+- **Quyền user:** Dùng OAuth token của user → Outline tự enforce quyền collection + document level.
+- **Grant flow:** User lần đầu (scope `read` chưa cấp) → `409 OUTLINE_GRANT_REQUIRED {grantUrl}` → ERP đưa user mở grantUrl (reuse `/pending/:id` consent-only flow, migration 0006) → user "Đồng ý" → retry API → `200`.
+- **Error handling:** `400` validation, `403 ACTING_USER_FORBIDDEN` (no collection access), `404` user/project/doc not found, `403 USER_DEACTIVATED`, `409` grant required.
+- **Audit:** Ghi `actingErpUserId`/`projectKey`/`resultStatus`.
+
+### Files mới
+- `src/document-tree/load-project-document-tree-service.ts` — business logic (duyệt cây, `findNode`, lọc depth, budget tracking).
+- `src/document-tree/document-tree-routes.ts` — route handler + validation schema.
+- `src/document-tree/load-project-document-tree-service.test.ts` — unit test (8 test).
+- Migration `0006-allow-consent-only-pending-requests.sql` — bỏ NOT NULL của `payload`/`document_id` trong `pending_document_requests` (yêu cầu chỉ-xin-đồng ý, không có doc).
+
+### Kiểm thử
+
+- **Unit:** pass (service cây: depth, parentDocumentId, 409, 403, cắt 1000 node; scope token).
+- **Tích hợp (Outline 1.10.1 thật):** `tests/e2e/document-tree-real-outline-integration.spec.ts` pass (409 grantUrl → đồng ý → 200; scope `read` đủ cho `collections.documents`; không lộ nội dung; node cha → từng cấp; user ngoài dự án → 403). Grant cũ thiếu `read` → 409 (kiểm tay). Toàn bộ 14 spec e2e pass.
+
+### Ghi chú
+
+- Max depth 5 để tránh deep recursion; query param `depth` validated 1–5.
+- Token scope `read` được yêu cầu lần đầu; nếu user cấp rồi (lần 2+) → `200` ngay.
+- Hiện tại dùng user token (approach a/b/c từ plan); nếu sau cần admin token + role-based filter → thay `TREE_READ_OUTLINE_SCOPE = "admin"` và thêm logic filter.
+
 ## [2026-10-02] Bridge tự tạo user ERP ở lần SSO đầu; permission-api chạy trong compose
 
 **Status:** ✓ Hoàn thành  

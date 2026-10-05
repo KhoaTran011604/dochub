@@ -6,7 +6,7 @@ import pg from "pg";
 import { createServiceClientRepository } from "../src/service-clients/service-client-repository.ts";
 import { generateServiceKey, rotateServiceKey } from "../src/service-clients/service-key-hashing.ts";
 
-const VALID_SCOPES = new Set(["users:write", "permissions:write", "documents:create"]);
+const VALID_SCOPES = new Set(["users:write", "permissions:write", "documents:create", "tree:read"]);
 
 function parseListFlag(args: string[], flag: string): string[] | undefined {
   const index = args.indexOf(flag);

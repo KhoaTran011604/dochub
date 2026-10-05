@@ -122,6 +122,14 @@ export interface OutlineCollection {
   permission: OutlinePermission | null;
 }
 
+/** Node của `collections.documents`: không có nội dung doc. */
+export interface OutlineNavigationNode {
+  id: string;
+  title: string;
+  url: string;
+  children: OutlineNavigationNode[];
+}
+
 export interface OutlineDocumentInfo {
   id: string;
   collectionId: string;

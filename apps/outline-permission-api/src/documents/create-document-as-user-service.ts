@@ -67,7 +67,7 @@ export function createCreateDocumentAsUserService(deps: {
     documentId: string,
   ): Promise<CreateDocumentResult> {
     const pending = await deps.pendingRepository.findByIdempotencyKey(serviceClientId, key);
-    if (pending?.status === "completed" && pending.documentUrl) {
+    if (pending?.status === "completed" && pending.documentUrl && pending.documentId) {
       const body = { documentId: pending.documentId, url: pending.documentUrl };
       await deps.idempotencyRepository.complete(serviceClientId, key, 201, body);
       return { status: 201, body, documentId: pending.documentId };

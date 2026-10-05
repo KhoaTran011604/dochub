@@ -30,6 +30,7 @@ function fakePendingRepository() {
       findByIdempotencyKey: vi.fn(),
       startAuthorization: vi.fn(),
       deleteFinishedBefore: vi.fn(),
+      createConsentOnly: vi.fn(),
     },
     requests,
     stateMap,

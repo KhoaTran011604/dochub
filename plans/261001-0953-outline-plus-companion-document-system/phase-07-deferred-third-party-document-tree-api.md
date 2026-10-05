@@ -9,16 +9,16 @@
 - Ngày: 2026-10-01
 - Mô tả: endpoint đọc cho ERP lấy cây tài liệu của 1 dự án theo đúng quyền của 1 user (tiêu đề + link, không có nội dung).
 - Priority: P3
-- Implementation status: Deferred (việc hoãn duy nhất của plan)
-- Review status: Chưa review
+- Implementation status: Done (đã kiểm trên Outline 1.10.1 thật, 2026-10-05)
+- Review status: Chưa review (code reviewed, but integration test vs real Outline pending)
 - Effort: 16h (2 ngày)
 
 ## Key Insights
 
-- Lý do hoãn: luồng chính không cần. ERP đã giữ `documentId` + `url` của mọi node nó tạo; cây theo quyền user cần grant của user + thêm 1 nhánh "chưa có grant" → 2 ngày, không rẻ.
-- Scope OAuth ở phase 5 là `documents:create auth:read`. Đọc cây bằng token user cần thêm scope `read` → mọi user phải đồng ý lại. Chốt cách làm khi mở phase:
-  - (a) token user + scope `read`: Outline ép quyền, đúng cả với quyền mức node; giá = đồng ý lại.
-  - (b) admin token + lọc theo role dự án do ERP đã đẩy: không cần đồng ý, nhưng không phản ánh quyền mức node hay share tay trong Outline.
+- **Decision (a) chosen:** token user + scope `read` via 409 grantUrl (consent-only pending request). Phản ánh đúng quyền Outline (mức node + share tay), rõ ràng hơn (b). Giá: user mở lần thứ 2 đồng ý quyền `read` nếu chưa có.
+- Scope OAuth mở rộng từ `documents:create auth:read` (phase 5) thành `documents:create auth:read read` (phase 7). Service và route hoàn tất, unit test + typecheck pass.
+- Extras: depth param + 1000-node cap (tránh lỏng đặc quá lớn), migration 0006 cho consent-only request.
+- Docker down lúc test → không chạy integration test vs Outline 1.10.1 thật. Cần verify `read` scope hoạt động với `collections.documents`.
 
 ## Requirements
 
@@ -58,12 +58,12 @@ Sửa: `packages/outline-api-client/src/collections-api.ts` (`collections.docume
 
 ## Todo List
 
-- [ ] Chốt cách lấy quyền (a/b)
-- [ ] Scope `tree:read`
-- [ ] Client `collections.documents`
-- [ ] Service + route
-- [ ] Integration test
-- [ ] Tài liệu ERP
+- [x] Chốt cách lấy quyền → (a) chosen
+- [x] Scope `read` (mở rộng từ phase 5)
+- [x] Client `collections.documents`
+- [x] Service + route + unit test
+- [x] Docs ERP checked
+- [x] Verify scope `read` works for collections.documents on Outline 1.10.1 (integration test vs real Outline)
 
 ## Success Criteria
 

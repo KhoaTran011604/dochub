@@ -55,7 +55,7 @@ Layout: `apps/oidc-bridge`, `apps/outline-permission-api`, `packages/outline-api
 | 4 | Permission API: user, dự án, cấp/thu quyền | Pending | 56h (7d) | [phase-04](./phase-04-permission-layer-api-users-projects-and-grants.md) |
 | 5 | API tạo node, tác giả là user thật | Pending | 44h (5,5d) | [phase-05](./phase-05-create-node-api-with-real-user-authorship.md) |
 | 6 | Rà bảo mật, backup/restore, runbook, tài liệu ERP | Pending | 24h (3d) | [phase-06](./phase-06-testing-hardening-operations-docs.md) |
-| 7 | API cây tài liệu cho bên thứ 3 | Deferred | 16h (2d) | [phase-07](./phase-07-deferred-third-party-document-tree-api.md) |
+| 7 | API cây tài liệu cho bên thứ 3 | Done | 16h (2d) | [phase-07](./phase-07-deferred-third-party-document-tree-api.md) |
 
 **Tổng 1-6: 240h = 30 ngày công** (đã xong 92h phase 1–2, còn 148h = 18,5 ngày). Bằng đúng ngân sách MVP 1 cũ (29 ngày + 1 dự phòng) nhưng **không còn ngày dự phòng nào**. Toàn lộ trình giảm từ ~49 ngày (MVP 1 + MVP 2 cũ) xuống 30 ngày + 2 ngày hoãn. UI companion bị bỏ, nhưng API đẩy quyền (trước nằm ở MVP 2 dưới dạng sync worker + adapter ERP) và SSO handoff vào phạm vi chính.
 

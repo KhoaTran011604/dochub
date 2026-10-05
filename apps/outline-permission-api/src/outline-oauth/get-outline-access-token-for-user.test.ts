@@ -40,6 +40,24 @@ describe("createGetOutlineAccessTokenForUser", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it("returns undefined without refresh or delete when the grant lacks the required scope", async () => {
+    const { repository, grants } = fakeGrantRepository();
+    grants.set("erp-user-1", {
+      erpUserId: "erp-user-1",
+      accessToken: "valid-token",
+      refreshToken: "refresh-123",
+      accessTokenExpiresAt: new Date("2099-01-01T00:00:00Z"),
+      scope: "documents:create auth:read",
+    });
+    const refresh = vi.fn();
+    const service = createGetOutlineAccessTokenForUser({ grantRepository: repository, refresh });
+
+    expect(await service("erp-user-1", "read")).toBeUndefined();
+    expect(await service("erp-user-1", "auth:read")).toBe("valid-token");
+    expect(refresh).not.toHaveBeenCalled();
+    expect(grants.has("erp-user-1")).toBe(true);
+  });
+
   it("returns valid access token without refresh when not expired", async () => {
     const { repository, grants } = fakeGrantRepository();
     const now = new Date("2024-01-15T12:00:00Z");

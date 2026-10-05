@@ -1,4 +1,9 @@
-import { createOutlineHttpClient, refreshAccessToken, type OutlineHttpClient } from "@hd-document/outline-api-client";
+import {
+  createOutlineHttpClient,
+  listCollectionDocuments,
+  refreshAccessToken,
+  type OutlineHttpClient,
+} from "@hd-document/outline-api-client";
 import type Router from "@koa/router";
 import type pg from "pg";
 import type { EnvironmentConfig } from "../config/environment-config.ts";
@@ -13,10 +18,19 @@ import { createPendingDocumentRequestRepository } from "../pending/pending-docum
 import { registerPendingDocumentRoutes } from "../pending/pending-document-request-routes.ts";
 import type { ProjectCollectionMapRepository } from "../projects/project-collection-map-repository.ts";
 import type { ErpUserRepository } from "../users/erp-user-repository.ts";
+import { registerDocumentTreeRoutes } from "../document-tree/document-tree-routes.ts";
+import {
+  createLoadProjectDocumentTreeService,
+  TREE_READ_OUTLINE_SCOPE,
+} from "../document-tree/load-project-document-tree-service.ts";
 import { createCreateDocumentAsUserService } from "./create-document-as-user-service.ts";
 import { createAssertParentInCollection, createOutlineDocumentWithUserToken } from "./create-outline-document-with-user-token.ts";
 import { createIdempotencyKeyRepository } from "./idempotency-key-repository.ts";
 import { registerCreateDocumentRoutes } from "./create-document-routes.ts";
+
+/** Scope tùy chỉnh trong env có thể thiếu `read`: thiếu thì user đồng ý xong vẫn bị đòi đồng ý lại ở API cây. */
+const withScope = (scope: string, required: string): string =>
+  scope.split(/[\s,]+/).includes(required) ? scope : `${scope} ${required}`;
 
 /**
  * Ráp API tạo node với tác giả là user thật (phase 5). Trả undefined khi thiếu
@@ -35,6 +49,8 @@ export function createNodeFeature(input: {
       registerPublicRoutes: (router: Router) => void;
       /** Route `POST /documents`, gắn SAU middleware service key + scope `documents:create`. */
       registerServiceRoutes: (router: Router) => void;
+      /** Route `GET /projects/:projectKey/document-tree`, gắn SAU middleware service key + scope `tree:read`. */
+      registerTreeRoutes: (router: Router) => void;
       revokeUserGrant: RevokeUserOutlineGrant;
       /** Dọn dòng hết hạn; app đặt vào job định kỳ. */
       cleanup: ExpiredRowsCleanup;
@@ -57,6 +73,10 @@ export function createNodeFeature(input: {
   const idempotencyRepository = createIdempotencyKeyRepository(pool);
   const grantRepository = createUserOutlineGrantRepository(pool, createTokenSealer(sealPassword));
   const pendingRepository = createPendingDocumentRequestRepository(pool);
+  const getAccessToken = createGetOutlineAccessTokenForUser({
+    grantRepository,
+    refresh: (refreshToken) => refreshAccessToken(credentials, refreshToken),
+  });
   const createDocumentWithUserToken = createOutlineDocumentWithUserToken({
     adminClient,
     assertParentInCollection,
@@ -69,12 +89,21 @@ export function createNodeFeature(input: {
     idempotencyRepository,
     pendingRepository,
     grantRepository,
-    getAccessToken: createGetOutlineAccessTokenForUser({
-      grantRepository,
-      refresh: (refreshToken) => refreshAccessToken(credentials, refreshToken),
-    }),
+    getAccessToken,
     createDocumentWithUserToken,
     assertParentInCollection,
+    publicUrl,
+    pendingTtlDays: config.PENDING_REQUEST_TTL_DAYS,
+  });
+  const treeService = createLoadProjectDocumentTreeService({
+    erpUserRepository,
+    mapRepository,
+    pendingRepository,
+    grantRepository,
+    getAccessToken,
+    listCollectionDocumentsWithUserToken: (accessToken, collectionId) =>
+      listCollectionDocuments(createUserClient(accessToken), collectionId),
+    outlineUrl: config.OUTLINE_URL,
     publicUrl,
     pendingTtlDays: config.PENDING_REQUEST_TTL_DAYS,
   });
@@ -99,11 +128,12 @@ export function createNodeFeature(input: {
         outlineUrl: config.OUTLINE_URL,
         publicUrl,
         oauthClientId: clientId,
-        oauthScope: config.OUTLINE_OAUTH_SCOPE,
+        oauthScope: withScope(config.OUTLINE_OAUTH_SCOPE, TREE_READ_OUTLINE_SCOPE),
         erpPortalUrl: config.ERP_PORTAL_URL,
       });
     },
     registerServiceRoutes: (router) => registerCreateDocumentRoutes(router, { service }),
+    registerTreeRoutes: (router) => registerDocumentTreeRoutes(router, { service: treeService }),
     cleanup: createExpiredRowsCleanup({
       pendingRepository,
       idempotencyRepository,

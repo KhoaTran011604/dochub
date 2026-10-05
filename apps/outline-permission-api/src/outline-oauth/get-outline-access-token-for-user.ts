@@ -1,7 +1,13 @@
 import { OutlineOAuthError, type OutlineOAuthTokens } from "@hd-document/outline-api-client";
 import type { UserOutlineGrantRepository } from "./user-outline-grant-repository.ts";
 
-export type GetOutlineAccessTokenForUser = (erpUserId: string) => Promise<string | undefined>;
+export type GetOutlineAccessTokenForUser = (
+  erpUserId: string,
+  /** Grant cũ thiếu scope này → coi như chưa có grant (giữ nguyên dòng, lần đồng ý tới ghi đè). */
+  requiredScope?: string,
+) => Promise<string | undefined>;
+
+const hasScope = (granted: string, required: string): boolean => granted.split(/[\s,]+/).includes(required);
 
 /** Dùng lại access token còn ít nhất chừng này, tránh hết hạn giữa chừng lúc gọi. */
 const EXPIRY_SKEW_MS = 60_000;
@@ -20,9 +26,10 @@ export function createGetOutlineAccessTokenForUser(deps: {
   now?: () => Date;
 }): GetOutlineAccessTokenForUser {
   const now = deps.now ?? (() => new Date());
-  return (erpUserId) =>
+  return (erpUserId, requiredScope) =>
     deps.grantRepository.withLockedGrant(erpUserId, async (grant, handle) => {
       if (!grant) return undefined;
+      if (requiredScope && !hasScope(grant.scope, requiredScope)) return undefined;
       if (grant.accessTokenExpiresAt.getTime() - EXPIRY_SKEW_MS > now().getTime()) {
         return grant.accessToken;
       }

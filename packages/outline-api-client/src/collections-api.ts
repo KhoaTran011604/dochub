@@ -1,5 +1,5 @@
 import type { OutlineHttpClient } from "./outline-http-client.ts";
-import type { OutlineCollection, OutlinePermission } from "./outline-api-types.ts";
+import type { OutlineCollection, OutlineNavigationNode, OutlinePermission } from "./outline-api-types.ts";
 
 /**
  * `permission: null` cho collection private, không ai mặc định vào được trừ
@@ -12,6 +12,17 @@ export async function createCollection(
   return client.request<OutlineCollection>("collections.create", input, {
     retry: false,
   });
+}
+
+/**
+ * Cây tài liệu của collection theo quyền của chủ token (gọi bằng token user).
+ * Chỉ tiêu đề/đường dẫn, không có nội dung.
+ */
+export async function listCollectionDocuments(
+  client: OutlineHttpClient,
+  collectionId: string,
+): Promise<OutlineNavigationNode[]> {
+  return client.request<OutlineNavigationNode[]>("collections.documents", { id: collectionId });
 }
 
 export async function addGroupToCollection(

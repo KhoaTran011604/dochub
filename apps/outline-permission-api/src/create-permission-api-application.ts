@@ -118,12 +118,18 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
   documentsRouter.use(requireScope("documents:create"));
   createNode?.registerServiceRoutes(documentsRouter);
 
+  const treeRouter = new Router();
+  treeRouter.use(requireScope("tree:read"));
+  createNode?.registerTreeRoutes(treeRouter);
+
   app.use(usersRouter.routes());
   app.use(usersRouter.allowedMethods());
   app.use(permissionsRouter.routes());
   app.use(permissionsRouter.allowedMethods());
   app.use(documentsRouter.routes());
   app.use(documentsRouter.allowedMethods());
+  app.use(treeRouter.routes());
+  app.use(treeRouter.allowedMethods());
 
   return app;
 }

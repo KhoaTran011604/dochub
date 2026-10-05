@@ -16,7 +16,13 @@ const createDocumentBodySchema = z.object({
 });
 
 /** Header bắt buộc: ERP gửi lại cùng giá trị khi retry hoặc để hỏi trạng thái 202. */
-const idempotencyKeySchema = z.string().min(1).max(200).regex(/^[\x21-\x7e]+$/);
+const idempotencyKeySchema = z
+  .string()
+  .min(1)
+  .max(200)
+  .regex(/^[\x21-\x7e]+$/)
+  // "consent:" là không gian khóa nội bộ của yêu cầu chỉ-xin-đồng ý (API cây tài liệu).
+  .refine((value) => !value.startsWith("consent:"));
 
 export function registerCreateDocumentRoutes(
   router: Router,

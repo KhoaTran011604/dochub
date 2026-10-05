@@ -74,6 +74,7 @@ function fakePendingRepository() {
     claimByState: vi.fn(),
     markCompleted: vi.fn(),
     deleteFinishedBefore: vi.fn(),
+    createConsentOnly: vi.fn(),
   };
   return { repository, pending };
 }

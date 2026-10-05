@@ -13,8 +13,9 @@ export interface PendingDocumentPayload {
 export interface PendingDocumentRequest {
   id: string;
   erpUserId: string;
-  payload: PendingDocumentPayload;
-  documentId: string;
+  /** null = yêu cầu chỉ xin đồng ý (không có doc để tạo). */
+  payload: PendingDocumentPayload | null;
+  documentId: string | null;
   status: "pending" | "completed";
   documentUrl: string | null;
   expiresAt: Date;
@@ -23,8 +24,8 @@ export interface PendingDocumentRequest {
 interface PendingRow {
   id: string;
   erp_user_id: string;
-  payload: PendingDocumentPayload;
-  document_id: string;
+  payload: PendingDocumentPayload | null;
+  document_id: string | null;
   status: string;
   document_url: string | null;
   expires_at: Date;
@@ -52,13 +53,18 @@ export interface PendingDocumentRequestRepository {
     documentId: string;
     expiresAt: Date;
   }): Promise<PendingDocumentRequest>;
+  /**
+   * Yêu cầu chỉ xin đồng ý, 1 dòng cho mỗi user (gọi lại làm mới hạn + mở lại
+   * nếu đã hoàn tất, giữ nguyên id để link cũ vẫn dùng được).
+   */
+  createConsentOnly(input: { serviceClientId: string; erpUserId: string; expiresAt: Date }): Promise<PendingDocumentRequest>;
   findById(id: string): Promise<PendingDocumentRequest | undefined>;
   findByIdempotencyKey(serviceClientId: string, key: string): Promise<PendingDocumentRequest | undefined>;
   /** Ghi state + PKCE verifier mới cho 1 lượt đồng ý (ghi đè lượt trước chưa dùng). */
   startAuthorization(id: string, state: string, codeVerifier: string): Promise<void>;
   /** Dùng `state` đúng 1 lần: trả yêu cầu + verifier rồi xóa state; null nếu state lạ/đã dùng. */
   claimByState(state: string): Promise<{ request: PendingDocumentRequest; codeVerifier: string } | undefined>;
-  markCompleted(id: string, documentUrl: string): Promise<void>;
+  markCompleted(id: string, documentUrl: string | null): Promise<void>;
   /** Dọn yêu cầu đã hoàn tất hoặc đã hết hạn từ trước `cutoff`; trả số dòng đã xóa. */
   deleteFinishedBefore(cutoff: Date): Promise<number>;
 }
@@ -90,6 +96,23 @@ export function createPendingDocumentRequestRepository(pool: pg.Pool): PendingDo
         input.serviceClientId,
         input.idempotencyKey,
       ]);
+      if (!created) throw new Error("pending_document_requests row missing after insert");
+      return created;
+    },
+
+    async createConsentOnly(input) {
+      const key = `consent:${input.erpUserId}`;
+      const id = randomBytes(16).toString("base64url");
+      await pool.query(
+        `INSERT INTO permission_api.pending_document_requests
+           (id, service_client_id, idempotency_key, erp_user_id, payload, document_id, expires_at)
+         VALUES ($1, $2, $3, $4, NULL, NULL, $5)
+         ON CONFLICT (service_client_id, idempotency_key) DO UPDATE SET
+           status = 'pending', document_url = NULL, completed_at = NULL, expires_at = EXCLUDED.expires_at
+         WHERE permission_api.pending_document_requests.payload IS NULL`,
+        [id, input.serviceClientId, key, input.erpUserId, input.expiresAt],
+      );
+      const created = await findOne("service_client_id = $1 AND idempotency_key = $2", [input.serviceClientId, key]);
       if (!created) throw new Error("pending_document_requests row missing after insert");
       return created;
     },

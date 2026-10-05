@@ -31,6 +31,7 @@ Base URL dev (host): `http://localhost:4100`. Trong mạng compose: `http://outl
 | `users:write` | `/users/*` |
 | `permissions:write` | `/projects/*`, `/documents/:id/members/*` |
 | `documents:create` | `POST /documents` (phase 5) |
+| `tree:read` | `GET /projects/{projectKey}/document-tree` (phase 7) |
 
 Quản lý key (key chỉ in ra **1 lần**):
 ```sh
@@ -110,9 +111,41 @@ Content-Type: application/json
 6. Lần sau, user đã đồng ý → luôn `201` ngay.
 7. Lần đầu mà user **chưa có phiên Outline**: đã kiểm thật (2026-10-05) — sau bước đăng nhập SSO Outline quay lại **màn đồng ý**, không cần mở lại link. Chưa thử với IdP thật khi user chưa có phiên IdP (dự kiến chỉ thêm 1 màn login IdP).
 
-### 3.5 Route trình duyệt (không phải cho ERP gọi)
-- `GET /pending/:id` → redirect sang `{OUTLINE_URL}/oauth/authorize` (state + PKCE S256, cookie httpOnly) hoặc thẳng tới doc nếu đã xong.
-- `GET /oauth/outline/callback?code&state` → đổi token, kiểm danh tính (`auth.info` phải đúng user), lưu grant, tạo doc, redirect tới doc. Lỗi hiển thị 1 dòng text + link `ERP_PORTAL_URL`.
+### 3.5 Cây tài liệu — scope `tree:read` (MỚI, phase 7)
+
+```
+GET /projects/{projectKey}/document-tree?actingErpUserId=<uuid>&parentDocumentId=<uuid>?&depth=<1-5>
+Authorization: Bearer <key>
+```
+
+| Query | Kiểu | Mô tả |
+|-------|------|-------|
+| `actingErpUserId` | UUID | Bắt buộc; user ERP sẽ đọc quyền của họ |
+| `parentDocumentId` | UUID | Tùy chọn; tài liệu cha. Nếu bỏ → gốc collection |
+| `depth` | số 1–5 | Tùy chọn, mặc định 2; số cấp trả về dưới điểm bắt đầu |
+
+| Status | Ý nghĩa | Body |
+|---|---|---|
+| `200` | Thành công | `{ projectKey, parentDocumentId, truncated, nodes:[{id,title,url,parentDocumentId,hasMoreChildren,children[]}] }` |
+| `400` | Sai query; `INVALID_PROJECT_KEY` | |
+| `403` | `ACTING_USER_FORBIDDEN` (user không có quyền đọc collection) | |
+| `404` | `USER_NOT_FOUND`, `PROJECT_NOT_FOUND`, `PARENT_DOCUMENT_NOT_FOUND` | |
+| `409` | `OUTLINE_GRANT_REQUIRED` (user chưa cấp scope `read` trong OAuth) | `{ error: {...}, grantUrl: "<pending-url>" }` |
+
+**Ghi chú:**
+- Max 1000 nodes trên 1 response; nếu vượt → `truncated: true`, gọi lại với `parentDocumentId` = một node con để tiếp.
+- Node không có nội dung; chỉ `id`, `title`, `url`, `parentDocumentId`, `hasMoreChildren`, `children[]` (những node con nếu `depth > 1`).
+- Quyền kiểm ở phía Outline: nếu user không thấy tài liệu hoặc không có quyền collection → `403 ACTING_USER_FORBIDDEN`.
+- 409 Grant: ERP đưa user mở `grantUrl`, user bấm Đồng ý → cấp scope `read` → retry API.
+
+**Cách ERP xử lý:**
+1. Gọi `GET /projects/PRJ-001/document-tree?actingErpUserId=<uuid>&depth=2`.
+2. `200` → xử lý `nodes`, nếu `truncated=true` → gọi lại với `parentDocumentId` = từng node con để lấy chi tiết.
+3. `409` → lưu `grantUrl`, đưa user mở nó (tái sử dụng flow `/pending/:id`), rồi retry API.
+
+### 3.6 Route trình duyệt (không phải cho ERP gọi)
+- `GET /pending/:id` → redirect sang `{OUTLINE_URL}/oauth/authorize` (state + PKCE S256, cookie httpOnly) hoặc thẳng tới doc nếu đã xong. Hỗ trợ cả luồng tạo doc (phase 5) và cấp quyền đọc (phase 7).
+- `GET /oauth/outline/callback?code&state` → đổi token, kiểm danh tính (`auth.info` phải đúng user), lưu grant, tạo doc (nếu pending request), redirect tới doc hoặc trang xác nhận. Lỗi hiển thị 1 dòng text + link `ERP_PORTAL_URL`.
 - `GET /healthz` — không cần key.
 
 ## 4. Cấu hình (infra/.env)
@@ -122,7 +155,7 @@ Content-Type: application/json
 | `OUTLINE_OAUTH_CLIENT_ID/SECRET` | Tạo bằng `pnpm --filter @hd-document/outline-workspace-setup register-oauth-client` |
 | `PERMISSION_API_PUBLIC_URL` | URL **trình duyệt user** mở được tới service; redirect URI = `<URL>/oauth/outline/callback` phải khớp OAuth client |
 | `TOKEN_SEAL_PASSWORD` | ≥ 32 ký tự; niêm phong token. Đổi = user đồng ý lại |
-| `OUTLINE_OAUTH_SCOPE` | mặc định `documents:create auth:read` |
+| `OUTLINE_OAUTH_SCOPE` | mặc định `documents:create auth:read read` (scope `read` tự thêm nếu thiếu cho API cây tài liệu phase 7) |
 | `PENDING_REQUEST_TTL_DAYS` | mặc định 7 |
 | `ERP_PORTAL_URL` | link "quay lại ERP" trên trang lỗi |
 
@@ -161,13 +194,19 @@ $U = "<uuid = sub của 1 user IdP thật>"
 8. **Idempotency:** cùng `t1` khác `title` → `409 IDEMPOTENCY_KEY_REUSED`.
 9. **Quyền:** hạ user xuống `viewer` → `403 ACTING_USER_FORBIDDEN`.
 10. **Deactivate:** `POST /users/$U/deactivate` rồi tạo node → `403 USER_DEACTIVATED`; `activate` rồi tạo node → `202` (grant đã bị xóa, đồng ý lại).
+11. **Cây tài liệu (phase 7):**
+    - Tạo key mới với scope `tree:read`: `pnpm --filter @hd-document/outline-permission-api manage-service-client create erp-tree --scopes tree:read --project-keys "*"`.
+    - `GET /projects/PRJ-001/document-tree?actingErpUserId=$U&depth=2` (scope `tree:read` bắt buộc) → `200 {projectKey,truncated,nodes}` nếu user đã cấp scope `read` trong OAuth.
+    - User lần đầu (chưa cấp scope `read`) → `409 {grantUrl}` → mở grantUrl → "Đồng ý" → retry → `200`.
+    - Hạ user xuống `viewer` → `403 ACTING_USER_FORBIDDEN`.
+    - Query invalid (sai UUID, depth > 5) → `400`.
 
-Test tự động: `pnpm -r typecheck`, `pnpm -r test` (69 test của permission API). **Chưa có** integration test với Outline thật và Playwright cho luồng đồng ý (xem mục 8).
+Test tự động: `pnpm -r typecheck`, `pnpm -r test` (permission API có test cho tree endpoint). **Chưa có** integration test với Outline thật cho luồng grant 409 (xem mục 8).
 
 ## 7. Mô hình dữ liệu (schema `permission_api`)
 `erp_users`, `project_collection_map`, `service_clients`, audit; phase 5 thêm: `user_outline_grants` (token niêm phong), `pending_document_requests`, `idempotency_keys`. Backup DB chứa token niêm phong → coi là dữ liệu nhạy cảm.
 
-## 8. Trạng thái & giới hạn đã biết (cập nhật 2026-10-05)
+## 8. Trạng thái & giới hạn đã biết (cập nhật 2026-10-05, sau phase 7)
 
 **Đã kiểm trên Outline 1.10.1 thật** (báo cáo: `plans/reports/fullstack-developer-261005-GH-5-phase-05-real-outline-verification.md`):
 - authorize → đồng ý → token → `documents.create` bằng token user → tác giả đúng user. Phương án B/C của plan **không cần**.
@@ -178,6 +217,8 @@ Test tự động: `pnpm -r typecheck`, `pnpm -r test` (69 test của permission
 
 **Đã làm ở phase 5:** audit `POST /documents` ghi `actingErpUserId`/`projectKey`/`documentId`/`resultStatus`; 2 route trình duyệt có rate limit 30 req/phút/IP (cần `PERMISSION_API_TRUST_PROXY=true` sau reverse proxy) + log; job dọn dòng pending/idempotency hết hạn (mỗi giờ, migration 0005); `parentDocumentId` được kiểm trước khi trả 202; lỗi validate 4xx xóa idempotency row nên retry cùng key sau khi sửa body không bị 409; `auth.info` lỗi mạng → `503 OUTLINE_UNAVAILABLE` (không thu hồi token, user mở lại pendingUrl).
 
+**Đã làm ở phase 7:** API cây tài liệu `GET /projects/{projectKey}/document-tree` + scope `tree:read` (service key); dùng OAuth token của user nên Outline tự enforce quyền; user chưa cấp scope `read` → `409 OUTLINE_GRANT_REQUIRED` + grantUrl (reuse `/pending/:id` consent flow, migration 0006); max 1000 nodes/response, `truncated` flag nếu vượt; mỗi node chỉ ghi `id`/`title`/`url`/`parentDocumentId`/`hasMoreChildren`/`children` (không nội dung); depth 1–5 mặc định 2; audit ghi `actingErpUserId`/`projectKey`/`resultStatus`.
+
 **Còn lại / lưu ý:**
 - Request song song cùng `Idempotency-Key`: đã sửa, cả hai đều `201` cùng 1 doc (test e2e khẳng định). ERP vẫn nên retry khi nhận `5xx`.
 - Replay `202` vẫn là `202` nếu user đã có grant nhưng lần tạo trước thất bại → dùng key mới.
@@ -185,8 +226,7 @@ Test tự động: `pnpm -r typecheck`, `pnpm -r test` (69 test của permission
 - Chưa test IdP thật khi user chưa có phiên IdP.
 - Spec `sso-handoff-link-opens-document-as-erp-user` cũ đang fail ở `beforeAll` (màn login Outline giờ có 2 nút) — cần cập nhật fixture, thuộc phase 6.
 
-## 9. Việc cập nhật sau phase 6–7
+## 9. Việc cập nhật sau phase 7+
 
 - Phase 6: tài liệu tích hợp bản chính, rà bảo mật; xóa `/sso` + dead code `/pending` allow-list ở bridge; có thể thêm prefix `/api/v1` — cập nhật Base URL mục 1.
-- **Phase 7 (hoãn): API cây tài liệu cho ERP lấy data** — dự kiến `GET /projects/{projectKey}/document-tree?actingErpUserId=&parentDocumentId?=` → `200 { id,title,url,parentDocumentId,children[] }` | `403` | `409 { grantUrl }`; scope service key mới `tree:read`; thêm scope OAuth `read` (mọi user đồng ý lại) hoặc dùng admin token + lọc role. Khi làm xong: thêm vào mục 2 (scope), mục 3 (endpoint), mục 6 (cách test), mục 8.
 - Mỗi lần đổi hợp đồng API: sửa file này cùng PR và ghi `docs/project-changelog.md`.

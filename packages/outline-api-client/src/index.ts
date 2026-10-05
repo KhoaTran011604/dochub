@@ -27,7 +27,7 @@ export {
   addUserToGroup,
   removeUserFromGroup,
 } from "./groups-api.ts";
-export { createCollection, addGroupToCollection } from "./collections-api.ts";
+export { createCollection, addGroupToCollection, listCollectionDocuments } from "./collections-api.ts";
 export {
   createDocument,
   getDocumentInfo,

@@ -17,11 +17,11 @@ export type CompletePendingRequestAfterConsent = (input: {
   state: string;
   /** Giá trị cookie đặt lúc /pending/:id: chứng minh cùng trình duyệt đã bắt đầu luồng. */
   cookieState: string | undefined;
-}) => Promise<string>;
+}) => Promise<string | undefined>;
 
 /**
  * Callback sau khi user bấm Đồng ý: đổi code → kiểm danh tính → lưu grant →
- * tạo doc → trả URL doc để redirect. Mọi lỗi là ApiError (route đổi thành 1
+ * tạo doc → trả URL doc để redirect (undefined = yêu cầu chỉ xin đồng ý). Mọi lỗi là ApiError (route đổi thành 1
  * dòng text). Thứ tự quan trọng: kiểm danh tính TRƯỚC khi lưu grant, để người
  * khác mở pendingUrl không gài được token của họ vào tài khoản của acting user.
  */
@@ -82,6 +82,12 @@ export function createCompletePendingRequestAfterConsent(deps: {
       accessTokenExpiresAt: tokens.expiresAt,
       scope: tokens.scope,
     });
+
+    // Yêu cầu chỉ xin đồng ý (API cây tài liệu): lưu grant là xong, không có doc để tạo.
+    if (!request.payload || !request.documentId) {
+      await deps.pendingRepository.markCompleted(request.id, null);
+      return undefined;
+    }
 
     const map = await deps.mapRepository.findByProjectKey(request.payload.projectKey);
     if (!map) throw notFound("PROJECT_NOT_FOUND", `No project "${request.payload.projectKey}".`);

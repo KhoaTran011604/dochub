@@ -41,8 +41,8 @@ const environmentSchema = z.object({
   PERMISSION_API_PUBLIC_URL: z.preprocess(emptyAsUndefined, httpUrl.optional()),
   OUTLINE_OAUTH_CLIENT_ID: z.preprocess(emptyAsUndefined, z.string().min(1).optional()),
   OUTLINE_OAUTH_CLIENT_SECRET: z.preprocess(emptyAsUndefined, z.string().min(1).optional()),
-  /** Scope xin ở màn đồng ý; chưa kiểm trên Outline thật (phase-05 bước 1), có thể phải đổi thành `create read`. */
-  OUTLINE_OAUTH_SCOPE: z.preprocess(emptyAsUndefined, z.string().min(1).default("documents:create auth:read")),
+  /** Scope xin ở màn đồng ý (đã kiểm trên Outline 1.10.1); `read` cho API cây tài liệu, tự thêm nếu thiếu. */
+  OUTLINE_OAUTH_SCOPE: z.preprocess(emptyAsUndefined, z.string().min(1).default("documents:create auth:read read")),
   /** Khóa niêm phong token Outline của user (iron-webcrypto), ≥ 32 ký tự. Đổi khóa = mọi user phải đồng ý lại. */
   TOKEN_SEAL_PASSWORD: z.preprocess(emptyAsUndefined, z.string().min(32).optional()),
   PENDING_REQUEST_TTL_DAYS: z.preprocess(emptyAsUndefined, z.coerce.number().int().min(1).max(90).default(7)),

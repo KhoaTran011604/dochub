@@ -84,6 +84,7 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     erpUserRepository,
     mailer,
     outlineUrl: config.OUTLINE_URL,
+    systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
   });
 
   const app = new Koa() as PermissionApiApplication;

@@ -32,6 +32,28 @@ export async function removeUserFromDocument(
   await client.request("documents.remove_user", { id: documentId, userId });
 }
 
+export interface OutlineDocumentMembership {
+  userId: string;
+  permission: OutlinePermission;
+}
+
+export interface OutlineDocumentMemberships {
+  memberships: OutlineDocumentMembership[];
+  users: { id: string; name: string; email: string }[];
+}
+
+/** Quyền trực tiếp (user) trên 1 doc: `documents.memberships`, phân trang theo limit/offset. */
+export async function listDocumentMemberships(
+  client: OutlineHttpClient,
+  documentId: string,
+): Promise<OutlineDocumentMemberships> {
+  const result = await client.request<Partial<OutlineDocumentMemberships>>("documents.memberships", {
+    id: documentId,
+    limit: 100,
+  });
+  return { memberships: result.memberships ?? [], users: result.users ?? [] };
+}
+
 /**
  * Gọi bằng client mang token của user thật (tác giả = chủ token). `retry: false`:
  * lỗi mơ hồ không tự gọi lại, caller tra `documents.info` theo `id` đã sinh.

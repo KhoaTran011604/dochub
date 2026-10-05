@@ -45,6 +45,7 @@ function fakeErpUserRepository() {
       async findByErpUserId(erpUserId: string) {
         return users.get(erpUserId) ?? undefined;
       },
+      findByOutlineUserIds: vi.fn(),
       insert: vi.fn(),
       updateProfile: vi.fn(),
       setStatus: vi.fn(),
@@ -64,6 +65,7 @@ function fakeMapRepository() {
       async findByCollectionId() {
         return undefined;
       },
+      findByOutlineUserIds: vi.fn(),
       insert: vi.fn(),
     },
     maps,

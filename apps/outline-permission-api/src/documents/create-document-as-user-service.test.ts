@@ -86,6 +86,7 @@ function fakeErpUserRepository() {
     async findByErpUserId(erpUserId) {
       return users.get(erpUserId) ?? undefined;
     },
+    findByOutlineUserIds: vi.fn(),
     insert: vi.fn(),
     updateProfile: vi.fn(),
     setStatus: vi.fn(),

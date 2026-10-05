@@ -32,6 +32,7 @@ function createFakeRepositories(map: ProjectCollectionMapRecord | undefined, out
     insert: () => Promise.resolve(),
   };
   const erpUserRepository: ErpUserRepository = {
+    findByOutlineUserIds: () => Promise.resolve([]),
     findByErpUserId: () =>
       Promise.resolve(
         outlineUserId === null

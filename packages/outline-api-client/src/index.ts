@@ -16,6 +16,7 @@ export {
 export {
   inviteUsers,
   listUsers,
+  listUsersByIds,
   findUserByEmail,
   suspendUser,
   activateUser,
@@ -33,6 +34,9 @@ export {
   getDocumentInfo,
   addUserToDocument,
   removeUserFromDocument,
+  listDocumentMemberships,
+  type OutlineDocumentMembership,
+  type OutlineDocumentMemberships,
 } from "./documents-api.ts";
 export { getAuthInfo } from "./auth-api.ts";
 export {

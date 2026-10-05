@@ -37,6 +37,7 @@ function fakeOutlineClient(existingUsers: OutlineUser[] = []) {
 function fakeRepository() {
   const rows = new Map<string, ErpUserRecord>();
   const repository: ErpUserRepository = {
+    findByOutlineUserIds: (ids) => Promise.resolve([...rows.values()].filter((row) => row.outlineUserId && ids.includes(row.outlineUserId))),
     findByErpUserId: (erpUserId) => Promise.resolve(rows.get(erpUserId)),
     insert: (input) => {
       const emailTaken = [...rows.values()].some(

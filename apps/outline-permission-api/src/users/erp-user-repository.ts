@@ -46,6 +46,7 @@ function isUniqueViolation(error: unknown): boolean {
 
 export interface ErpUserRepository {
   findByErpUserId(erpUserId: string): Promise<ErpUserRecord | undefined>;
+  findByOutlineUserIds(outlineUserIds: string[]): Promise<ErpUserRecord[]>;
   insert(input: {
     erpUserId: string;
     email: string;
@@ -68,6 +69,15 @@ export function createErpUserRepository(pool: pg.Pool): ErpUserRepository {
       );
       const row = result.rows[0];
       return row ? toRecord(row) : undefined;
+    },
+
+    async findByOutlineUserIds(outlineUserIds) {
+      if (outlineUserIds.length === 0) return [];
+      const result = await pool.query<ErpUserRow>(
+        `SELECT ${SELECT_COLUMNS} FROM permission_api.erp_users WHERE outline_user_id = ANY($1::uuid[])`,
+        [outlineUserIds],
+      );
+      return result.rows.map(toRecord);
     },
 
     async insert(input) {

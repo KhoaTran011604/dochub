@@ -26,6 +26,12 @@ export async function listUsers(
   return client.request<OutlineUser[]>("users.list", { limit: 100, ...params });
 }
 
+/** `users.list` theo danh sách id (Outline không trả email trong `documents.memberships`). */
+export async function listUsersByIds(client: OutlineHttpClient, ids: string[]): Promise<OutlineUser[]> {
+  if (ids.length === 0) return [];
+  return client.request<OutlineUser[]>("users.list", { ids, limit: 100 });
+}
+
 /** `users.list` lọc gần đúng theo `query`; so khớp email chính xác (không phân biệt hoa thường) ở đây. */
 export async function findUserByEmail(
   client: OutlineHttpClient,

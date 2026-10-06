@@ -62,10 +62,13 @@ Lỗi: `409 EMAIL_ALREADY_IN_USE`, `403 SYSTEM_ADMIN_EMAIL_RESERVED` (email `SYS
 | Method | Path | Body | Kết quả |
 |---|---|---|---|
 | PUT | `/projects/:projectKey` | `{ name }` | `{ projectKey, collectionId, url }` (idempotent) |
+| GET | `/projects/:projectKey/members` | – | `{ projectKey, members:[{erpUserId,email,name,role}] }` — ai đang có **quyền collection** |
 | PUT | `/projects/:projectKey/members/:erpUserId` | `{ role: viewer\|editor\|manager }` | `{projectKey,erpUserId,role}` |
-| DELETE | `/projects/:projectKey/members/:erpUserId` | – | `204` |
+| DELETE | `/projects/:projectKey/members/:erpUserId` | – | `204` (gỡ khỏi collection; quyền mức node vẫn giữ) |
 
 `projectKey` theo regex trong `projects-routes.ts` (`INVALID_PROJECT_KEY` nếu sai).
+
+> **Quyền collection ≠ quyền node.** Role dự án (mục này) = quyền trên **cả collection**: user thấy MỌI doc của dự án, bất kể quyền mức node. Chỉ gán cho người cần toàn bộ dự án (quản lý). User chỉ cần vài node → **không** gán role dự án, dùng mục 3.3. Audit của PUT/DELETE ghi `erpUserId` + `role`.
 
 ### 3.3 Quyền mức node — scope `permissions:write`
 | Method | Path | Body | Kết quả |
@@ -128,14 +131,15 @@ Authorization: Bearer <key>
 |---|---|---|
 | `200` | Thành công | `{ projectKey, parentDocumentId, truncated, nodes:[{id,title,url,parentDocumentId,hasMoreChildren,children[]}] }` |
 | `400` | Sai query; `INVALID_PROJECT_KEY` | |
-| `403` | `ACTING_USER_FORBIDDEN` (user không có quyền đọc collection) | |
+| `403` | `ACTING_USER_FORBIDDEN` (user không có quyền collection VÀ không được chia sẻ node nào trong dự án) | |
 | `404` | `USER_NOT_FOUND`, `PROJECT_NOT_FOUND`, `PARENT_DOCUMENT_NOT_FOUND` | |
 | `409` | `OUTLINE_GRANT_REQUIRED` (user chưa cấp scope `read` trong OAuth) | `{ error: {...}, grantUrl: "<pending-url>" }` |
 
 **Ghi chú:**
 - Max 1000 nodes trên 1 response; nếu vượt → `truncated: true`, gọi lại với `parentDocumentId` = một node con để tiếp.
 - Node không có nội dung; chỉ `id`, `title`, `url`, `parentDocumentId`, `hasMoreChildren`, `children[]` (những node con nếu `depth > 1`).
-- Quyền kiểm ở phía Outline: nếu user không thấy tài liệu hoặc không có quyền collection → `403 ACTING_USER_FORBIDDEN`.
+- Quyền kiểm ở phía Outline. User có role dự án (quyền collection) → cây đầy đủ (`collections.documents`). User **không** có quyền collection nhưng được chia sẻ node (mục 3.3) → cây chỉ gồm các node đó + con cháu (Outline tự cascade quyền xuống con; dựng từ `userMemberships.list` + `documents.list`). Không có gì → `403 ACTING_USER_FORBIDDEN`.
+- Collection bị xóa thẳng trong Outline: map `projectKey → collectionId` vẫn còn → mọi call tree trả `403`. Hiện chưa có API dọn map; tạo dự án với key mới hoặc xóa dòng trong `project_collection_map`.
 - 409 Grant: ERP đưa user mở `grantUrl`, user bấm Đồng ý → cấp scope `read` → retry API.
 
 **Cách ERP xử lý:**

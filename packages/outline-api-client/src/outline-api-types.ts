@@ -136,6 +136,16 @@ export interface OutlineDocumentInfo {
   url?: string;
 }
 
+/** Doc rút gọn từ `documents.list` / `userMemberships.list` (user token): đủ để dựng cây, không có nội dung. */
+export interface OutlineDocumentSummary {
+  id: string;
+  title: string;
+  /** Path tương đối `/doc/<slug>`, ghép với `OUTLINE_URL` khi trả ra ngoài. */
+  url: string;
+  collectionId: string | null;
+  parentDocumentId: string | null;
+}
+
 /** `auth.info`: chỉ field dùng để kiểm danh tính token. */
 export interface OutlineAuthInfo {
   user: { id: string };

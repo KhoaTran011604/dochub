@@ -10,6 +10,7 @@ import type { UserOutlineGrantRepository } from "../outline-oauth/user-outline-g
 import type { PendingDocumentRequestRepository } from "../pending/pending-document-request-repository.ts";
 import type { ProjectCollectionMapRepository } from "../projects/project-collection-map-repository.ts";
 import type { ErpUserRepository } from "../users/erp-user-repository.ts";
+import { loadSharedDocumentsTree, type SharedDocumentsSource } from "./load-shared-documents-tree.ts";
 
 /** Scope OAuth Outline cần để đọc cây (`collections.documents`) bằng token user. */
 export const TREE_READ_OUTLINE_SCOPE = "read";
@@ -88,6 +89,8 @@ export function createLoadProjectDocumentTreeService(deps: {
   grantRepository: UserOutlineGrantRepository;
   getAccessToken: GetOutlineAccessTokenForUser;
   listCollectionDocumentsWithUserToken: (accessToken: string, collectionId: string) => Promise<OutlineNavigationNode[]>;
+  /** Fallback khi user không có quyền collection: chỉ các node được chia sẻ riêng. */
+  sharedDocumentsSourceWithUserToken: (accessToken: string) => SharedDocumentsSource;
   /** `OUTLINE_URL` public để ghép `url` trả cho ERP. */
   outlineUrl: string;
   /** `PERMISSION_API_PUBLIC_URL`: gốc của grantUrl. */
@@ -114,34 +117,48 @@ export function createLoadProjectDocumentTreeService(deps: {
       const accessToken = await deps.getAccessToken(user.erpUserId, TREE_READ_OUTLINE_SCOPE);
       if (!accessToken) return requireGrant(serviceClientId, user.erpUserId);
 
-      let roots: OutlineNavigationNode[];
+      let level: OutlineNavigationNode[];
+      let sharedTruncated = false;
       try {
-        roots = await deps.listCollectionDocumentsWithUserToken(accessToken, map.collectionId);
+        const roots = await deps.listCollectionDocumentsWithUserToken(accessToken, map.collectionId);
+        level = roots;
+        if (input.parentDocumentId) {
+          const parent = findNode(roots, input.parentDocumentId);
+          // Cũng là kết quả khi node tồn tại nhưng user không thấy: không phân biệt để khỏi lộ.
+          if (!parent) throw notFound("PARENT_DOCUMENT_NOT_FOUND", `No document "${input.parentDocumentId}" in this project.`);
+          level = parent.children ?? [];
+        }
       } catch (error) {
         // Outline từ chối token (bị thu hồi phía Outline): bỏ grant, user đồng ý lại.
         if (error instanceof OutlineUnauthorizedError) {
           await deps.grantRepository.delete(user.erpUserId);
           return requireGrant(serviceClientId, user.erpUserId);
         }
-        // Không vào được collection = không thuộc dự án: không lộ gì thêm.
-        if (error instanceof OutlineForbiddenError || error instanceof OutlineNotFoundError) {
+        if (!(error instanceof OutlineForbiddenError || error instanceof OutlineNotFoundError)) throw error;
+        // Không có quyền collection: chỉ còn các node được chia sẻ riêng (documents.add_user).
+        const shared = await loadSharedDocumentsTree(deps.sharedDocumentsSourceWithUserToken(accessToken), {
+          collectionId: map.collectionId,
+          parentDocumentId: input.parentDocumentId,
+          depth: input.depth,
+          maxNodes: MAX_TREE_NODES,
+        });
+        level = shared.nodes;
+        sharedTruncated = shared.truncated;
+        // Không được chia sẻ gì = không thuộc dự án: không lộ gì thêm.
+        if (level.length === 0 && !input.parentDocumentId) {
           throw forbidden("ACTING_USER_FORBIDDEN", "The acting user is not allowed to read documents in this project.");
         }
-        throw error;
-      }
-
-      let level = roots;
-      if (input.parentDocumentId) {
-        const parent = findNode(roots, input.parentDocumentId);
-        // Cũng là kết quả khi node tồn tại nhưng user không thấy: không phân biệt để khỏi lộ.
-        if (!parent) throw notFound("PARENT_DOCUMENT_NOT_FOUND", `No document "${input.parentDocumentId}" in this project.`);
-        level = parent.children ?? [];
       }
       const budget = { left: MAX_TREE_NODES, truncated: false };
       const nodes = mapLevel(level, input.parentDocumentId ?? null, input.depth, budget, deps.outlineUrl);
       return {
         kind: "tree",
-        body: { projectKey: input.projectKey, parentDocumentId: input.parentDocumentId ?? null, truncated: budget.truncated, nodes },
+        body: {
+          projectKey: input.projectKey,
+          parentDocumentId: input.parentDocumentId ?? null,
+          truncated: budget.truncated || sharedTruncated,
+          nodes,
+        },
       };
     },
   };

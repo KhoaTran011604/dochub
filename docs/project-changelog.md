@@ -1,5 +1,24 @@
 # Nhật ký dự án
 
+## [2026-10-06] Cây tài liệu cho user chỉ được chia sẻ node; API liệt kê quyền collection
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/outline-permission-api/src/document-tree/`, `src/projects/`, `packages/outline-api-client/`, `docs/`
+
+### Bối cảnh (bug report)
+- ERP-fake khi sync đẩy **mọi** thành viên dự án vào group `manager` → quyền collection bao trùm, chia sẻ từng node vô nghĩa (user thấy hết trong Outline). Đã sửa ở ERP-fake: sync chỉ gán collection role cho quản lý dự án; thêm màn "Collection access" (Manage/Edit/View/No access).
+- Tree API trả `403` cho user chỉ có quyền mức node (Outline 1.10.1: `collections.documents` cần membership collection).
+
+### Đã thêm / sửa
+- **Tree API fallback:** `collections.documents` 403/404 → dựng cây từ node được chia sẻ (`userMemberships.list` lọc theo collection, con cháu qua `documents.list` + membership escape). Không có gì → vẫn `403 ACTING_USER_FORBIDDEN` (không lộ). `parentDocumentId` trong fallback kiểm bằng `documents.info` token user.
+- **`GET /projects/:projectKey/members`** (scope `permissions:write`): role collection hiện có của từng user ERP (3 group → `manager|editor|viewer`).
+- **Audit** `PUT/DELETE /projects/:key/members/:erpUserId` giờ ghi `erpUserId`, `role` (trước chỉ `{}`).
+- Client Outline: `listUserMembershipDocuments`, `listChildDocuments`, `getDocumentSummary`, `listGroupMemberUserIds`.
+
+### Kiểm thử
+- Unit: tree service (fallback, 403, 404 parent), list members (29 test pass). Typecheck pass.
+- Tay (Outline thật, 2026-10-06): +2 không có role collection, chia sẻ `demo1` → tree `hd-farm2` chỉ trả `demo1`; dự án khác → 403; manager vẫn thấy đủ.
+
 ## [2026-10-05] Phase 7: API cây tài liệu cho ERP đọc cấu trúc document
 
 **Status:** ✓ Hoàn thành  

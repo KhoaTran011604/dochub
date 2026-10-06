@@ -1,6 +1,11 @@
 import {
   createOutlineHttpClient,
+  getDocumentSummary,
+  listChildDocuments,
   listCollectionDocuments,
+  listUserMembershipDocuments,
+  OutlineForbiddenError,
+  OutlineNotFoundError,
   refreshAccessToken,
   type OutlineHttpClient,
 } from "@hd-document/outline-api-client";
@@ -103,6 +108,21 @@ export function createNodeFeature(input: {
     getAccessToken,
     listCollectionDocumentsWithUserToken: (accessToken, collectionId) =>
       listCollectionDocuments(createUserClient(accessToken), collectionId),
+    sharedDocumentsSourceWithUserToken: (accessToken) => {
+      const userClient = createUserClient(accessToken);
+      return {
+        listSharedRoots: () => listUserMembershipDocuments(userClient),
+        listChildren: (parentDocumentId) => listChildDocuments(userClient, parentDocumentId),
+        getDocument: async (documentId) => {
+          try {
+            return await getDocumentSummary(userClient, documentId);
+          } catch (error) {
+            if (error instanceof OutlineForbiddenError || error instanceof OutlineNotFoundError) return undefined;
+            throw error;
+          }
+        },
+      };
+    },
     outlineUrl: config.OUTLINE_URL,
     publicUrl,
     pendingTtlDays: config.PENDING_REQUEST_TTL_DAYS,

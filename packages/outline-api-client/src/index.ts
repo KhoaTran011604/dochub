@@ -27,6 +27,7 @@ export {
   findGroupByExternalId,
   addUserToGroup,
   removeUserFromGroup,
+  listGroupMemberUserIds,
 } from "./groups-api.ts";
 export { createCollection, addGroupToCollection, listCollectionDocuments } from "./collections-api.ts";
 export {
@@ -35,6 +36,9 @@ export {
   addUserToDocument,
   removeUserFromDocument,
   listDocumentMemberships,
+  listUserMembershipDocuments,
+  listChildDocuments,
+  getDocumentSummary,
   type OutlineDocumentMembership,
   type OutlineDocumentMemberships,
 } from "./documents-api.ts";

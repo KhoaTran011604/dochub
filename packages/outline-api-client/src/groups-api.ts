@@ -32,6 +32,23 @@ export async function findGroupByExternalId(
   return groups.find((group) => group.externalId === externalId);
 }
 
+/** Id các user Outline trong group (`groups.memberships`, phân trang). */
+export async function listGroupMemberUserIds(client: OutlineHttpClient, groupId: string): Promise<string[]> {
+  const PAGE_SIZE = 100;
+  const ids: string[] = [];
+  for (let page = 0; page < 50; page += 1) {
+    const result = await client.request<{ users?: Array<{ id: string }> }>("groups.memberships", {
+      id: groupId,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
+    });
+    const users = result?.users ?? [];
+    ids.push(...users.map((user) => user.id));
+    if (users.length < PAGE_SIZE) break;
+  }
+  return ids;
+}
+
 export async function addUserToGroup(
   client: OutlineHttpClient,
   groupId: string,

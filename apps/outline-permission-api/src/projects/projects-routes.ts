@@ -1,10 +1,12 @@
 import type Router from "@koa/router";
 import { z } from "zod";
+import { addAuditDetails } from "../audit/api-audit-logger.ts";
 import { badRequest } from "../http/api-error.ts";
 import { assertProjectKeyAllowed, getServiceClient } from "../http/service-key-authentication-middleware.ts";
 import { parseJsonBody, parseUuidParam } from "../http/validate-request-with-zod.ts";
 import { PROJECT_KEY_PATTERN } from "./project-group-naming-convention.ts";
 import type { ProjectCollectionMapRecord } from "./project-collection-map-repository.ts";
+import type { ListProjectMembersService } from "./list-project-members-service.ts";
 import type { SetProjectMemberRoleService } from "./set-project-member-role-service.ts";
 
 function parseProjectKey(raw: string | undefined): string {
@@ -27,6 +29,7 @@ export function registerProjectsRoutes(
     outlineUrl: string;
     ensureProject: (projectKey: string, name: string) => Promise<ProjectCollectionMapRecord>;
     memberRoleService: SetProjectMemberRoleService;
+    listMembersService: ListProjectMembersService;
   },
 ): void {
   router.put("/projects/:projectKey", async (ctx) => {
@@ -42,11 +45,20 @@ export function registerProjectsRoutes(
     };
   });
 
+  /** Quyền mức collection (role dự án) hiện có — để ERP hiển thị/đổi, phân biệt với quyền mức node. */
+  router.get("/projects/:projectKey/members", async (ctx) => {
+    const projectKey = parseProjectKey(ctx.params.projectKey);
+    assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
+    addAuditDetails(ctx.state, { projectKey });
+    ctx.body = { projectKey, members: await deps.listMembersService.list(projectKey) };
+  });
+
   router.put("/projects/:projectKey/members/:erpUserId", async (ctx) => {
     const projectKey = parseProjectKey(ctx.params.projectKey);
     const erpUserId = parseErpUserId(ctx.params.erpUserId);
     assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
     const body = await parseJsonBody(ctx, setMemberRoleBodySchema);
+    addAuditDetails(ctx.state, { projectKey, erpUserId, role: body.role });
 
     await deps.memberRoleService.setRole(projectKey, erpUserId, body.role);
     ctx.body = { projectKey, erpUserId, role: body.role };
@@ -56,6 +68,7 @@ export function registerProjectsRoutes(
     const projectKey = parseProjectKey(ctx.params.projectKey);
     const erpUserId = parseErpUserId(ctx.params.erpUserId);
     assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
+    addAuditDetails(ctx.state, { projectKey, erpUserId });
 
     await deps.memberRoleService.removeMember(projectKey, erpUserId);
     ctx.status = 204;

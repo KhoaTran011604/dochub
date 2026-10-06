@@ -16,6 +16,7 @@ import {
   requireScope,
 } from "./http/service-key-authentication-middleware.ts";
 import { ensureProjectCollectionAndGroups } from "./projects/ensure-project-collection-and-groups.ts";
+import { createListProjectMembersService } from "./projects/list-project-members-service.ts";
 import { createProjectCollectionMapRepository } from "./projects/project-collection-map-repository.ts";
 import { registerProjectsRoutes } from "./projects/projects-routes.ts";
 import { createSetProjectMemberRoleService } from "./projects/set-project-member-role-service.ts";
@@ -112,6 +113,7 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     ensureProject: (projectKey, name) =>
       ensureProjectCollectionAndGroups(outlineClient, mapRepository, projectKey, name),
     memberRoleService,
+    listMembersService: createListProjectMembersService({ outlineClient, mapRepository, erpUserRepository }),
   });
   registerDocumentMembersRoutes(permissionsRouter, { service: documentMemberService });
 

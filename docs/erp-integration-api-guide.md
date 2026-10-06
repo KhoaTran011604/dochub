@@ -197,7 +197,7 @@ $U = "<uuid = sub của 1 user IdP thật>"
 11. **Cây tài liệu (phase 7):**
     - Tạo key mới với scope `tree:read`: `pnpm --filter @hd-document/outline-permission-api manage-service-client create erp-tree --scopes tree:read --project-keys "*"`.
     - `GET /projects/PRJ-001/document-tree?actingErpUserId=$U&depth=2` (scope `tree:read` bắt buộc) → `200 {projectKey,truncated,nodes}` nếu user đã cấp scope `read` trong OAuth.
-    - User lần đầu (chưa cấp scope `read`) → `409 {grantUrl}` → mở grantUrl → "Đồng ý" → retry → `200`.
+    - User lần đầu (chưa cấp scope `read`) → `409 {grantUrl}` → mở grantUrl → "Đồng ý" → trình duyệt chuyển về trang chủ Outline → retry → `200`.
     - Hạ user xuống `viewer` → `403 ACTING_USER_FORBIDDEN`.
     - Query invalid (sai UUID, depth > 5) → `400`.
 

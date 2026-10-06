@@ -20,11 +20,9 @@ function renderFailure(ctx: Context, status: number, message: string, erpPortalU
   ctx.body = erpPortalUrl ? `${message} Back to ERP: ${erpPortalUrl}` : message;
 }
 
-/** Yêu cầu chỉ xin đồng ý đã xong: không có doc để mở, chỉ báo và chỉ đường về ERP. */
-function renderGranted(ctx: Context, erpPortalUrl: string | undefined): void {
-  ctx.status = 200;
-  ctx.type = "text/plain";
-  ctx.body = erpPortalUrl ? `Access granted. Back to ERP: ${erpPortalUrl}` : "Access granted. You can close this tab.";
+/** Yêu cầu chỉ xin đồng ý đã xong: không có doc để mở, đưa user về trang chủ Outline. */
+function redirectGranted(ctx: Context, outlineUrl: string): void {
+  ctx.redirect(outlineUrl);
 }
 
 export function registerPendingDocumentRoutes(
@@ -53,7 +51,7 @@ export function registerPendingDocumentRoutes(
       const request = await deps.pendingRepository.findById(ctx.params.id ?? "");
       if (!request) return renderFailure(ctx, 404, "Request not found.", deps.erpPortalUrl);
       if (request.status === "completed" && request.documentUrl) return ctx.redirect(request.documentUrl);
-      if (request.status === "completed") return renderGranted(ctx, deps.erpPortalUrl);
+      if (request.status === "completed") return redirectGranted(ctx, deps.outlineUrl);
       if (request.expiresAt.getTime() <= now().getTime()) {
         return renderFailure(ctx, 410, "This request expired.", deps.erpPortalUrl);
       }
@@ -95,7 +93,7 @@ export function registerPendingDocumentRoutes(
       });
       ctx.cookies.set(STATE_COOKIE, null, { path: CALLBACK_PATH });
       if (documentUrl) ctx.redirect(documentUrl);
-      else renderGranted(ctx, deps.erpPortalUrl);
+      else redirectGranted(ctx, deps.outlineUrl);
     } catch (error) {
       fail(ctx, error);
     }

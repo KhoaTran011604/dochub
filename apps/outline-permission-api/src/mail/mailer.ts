@@ -7,6 +7,8 @@ export interface MailerService {
     documentUrl: string;
     permission: string;
   }): Promise<void>;
+  /** Thông báo được cấp role trên cả collection (dự án) kèm link collection. */
+  sendCollectionInviteEmail(options: { toEmail: string; collectionUrl: string; role: string }): Promise<void>;
 }
 
 export function createMailerService(
@@ -20,6 +22,10 @@ export function createMailerService(
     return {
       sendDocumentInviteEmail() {
         console.warn("SMTP_HOST or SMTP_PORT is not set. Skipping sending document invite email.");
+        return Promise.resolve();
+      },
+      sendCollectionInviteEmail() {
+        console.warn("SMTP_HOST or SMTP_PORT is not set. Skipping sending collection invite email.");
         return Promise.resolve();
       },
     };
@@ -47,6 +53,22 @@ export function createMailerService(
           <p>You have been invited to collaborate on a document.</p>
           <p>Your permission level: <strong>${permission}</strong></p>
           <p><a href="${documentUrl}">Click here to view the document</a></p>`,
+        });
+      } catch (error) {
+        console.error("Failed to send email via SMTP:", error);
+      }
+    },
+
+    async sendCollectionInviteEmail({ toEmail, collectionUrl, role }) {
+      try {
+        await transporter.sendMail({
+          from: fromAddress,
+          to: toEmail,
+          subject: "You have been given access to a project",
+          html: `<p>Hello,</p>
+          <p>You have been given access to all documents of a project.</p>
+          <p>Your role: <strong>${role}</strong></p>
+          <p><a href="${collectionUrl}">Click here to open the project</a></p>`,
         });
       } catch (error) {
         console.error("Failed to send email via SMTP:", error);

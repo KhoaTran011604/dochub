@@ -1,5 +1,24 @@
 # Nhật ký dự án
 
+## [2026-10-06] Mời theo email ở mức collection; quyền node thêm `admin` (Manage)
+
+**Status:** ✓ Hoàn thành  
+**Scope:** `apps/outline-permission-api/src/projects/`, `src/document-permissions/`, `src/users/`, `src/mail/`, `docs/`
+
+### Bối cảnh
+- Màn "Collection access" ERP chỉ cho đổi role của member ERP có sẵn (hard 4 account) — không mời được email ngoài như Outline.
+- Modal quyền node chỉ có Can view / Can edit; thiếu Manage (`admin`).
+
+### Đã thêm / sửa
+- **`PUT /projects/:key/invitations`** `{ email, role }` + **`DELETE ...?email=`**: cấp/gỡ role collection cho email bất kỳ (tạo tài khoản Outline nếu chưa có, gửi mail kèm link collection). `403 SYSTEM_ADMIN_EMAIL_RESERVED` cho email admin hệ thống.
+- **`GET /projects/:key/members`** giờ trả cả người ngoài ERP (`erpUserId: null`), bỏ email admin hệ thống.
+- **Quyền node** chấp nhận `permission: admin` ở cả `/members/:erpUserId` và `/invitations`.
+- DRY: tách `users/find-or-invite-outline-user-by-email.ts` dùng chung cho doc + collection; mailer thêm `sendCollectionInviteEmail`.
+- ERP-fake: modal Collection access có ô email + role + Invite; hàng "invited by email" đổi/gỡ theo email; modal node thêm option Manage.
+
+### Kiểm thử
+- Unit: 104 test pass (thêm 4 test setRoleByEmail/removeMemberByEmail, list gồm người ngoài). Typecheck pass. ERP-fake `next build` pass.
+
 ## [2026-10-06] Cây tài liệu cho user chỉ được chia sẻ node; API liệt kê quyền collection
 
 **Status:** ✓ Hoàn thành  

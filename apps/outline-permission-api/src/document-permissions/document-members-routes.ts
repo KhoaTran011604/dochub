@@ -10,8 +10,10 @@ const parseErpUserId = (raw: string | undefined) =>
 const parseDocumentId = (raw: string | undefined) =>
   parseUuidParam(raw, "DOCUMENT_ID_NOT_UUID", "documentId");
 
-const inviteBodySchema = z.object({ email: z.email(), permission: z.enum(["read", "read_write"]) });
-const setPermissionBodySchema = z.object({ permission: z.enum(["read", "read_write"]) });
+/** `admin` = "Manage" trong Outline: sửa + chia sẻ + xóa doc đó. */
+const documentPermissionSchema = z.enum(["read", "read_write", "admin"]);
+const inviteBodySchema = z.object({ email: z.email(), permission: documentPermissionSchema });
+const setPermissionBodySchema = z.object({ permission: documentPermissionSchema });
 
 export function registerDocumentMembersRoutes(
   router: Router,

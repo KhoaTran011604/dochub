@@ -13,15 +13,23 @@ const MAP = {
 };
 
 describe("list project members", () => {
-  it("maps each role group to ERP users, highest role wins, unmapped Outline users dropped", async () => {
+  it("maps role groups to ERP users (highest role wins) and email-invited outsiders; reserved admin dropped", async () => {
     const membersByGroup: Record<string, string[]> = {
       "g-manager": ["ou-1", "ou-admin"],
       "g-editor": ["ou-2", "ou-1"],
-      "g-viewer": ["ou-3"],
+      "g-viewer": ["ou-3", "ou-guest"],
     };
-    const request = vi.fn((method: string, body: { id: string }) => {
+    const request = vi.fn((method: string, body: { id?: string; ids?: string[] }) => {
+      if (method === "users.list") {
+        // ou-admin không map ERP: email reserved → bị loại; ou-guest là người ngoài mời theo email.
+        const known = [
+          { id: "ou-admin", email: "admin@x", name: "Admin" },
+          { id: "ou-guest", email: "guest@x", name: "Guest" },
+        ];
+        return Promise.resolve(known.filter((user) => body.ids?.includes(user.id)));
+      }
       if (method !== "groups.memberships") return Promise.reject(new Error(method));
-      return Promise.resolve({ users: (membersByGroup[body.id] ?? []).map((id) => ({ id })) });
+      return Promise.resolve({ users: (membersByGroup[body.id ?? ""] ?? []).map((id) => ({ id })) });
     });
     const erpUserRepository = {
       findByOutlineUserIds: vi.fn((ids: string[]) =>
@@ -38,13 +46,15 @@ describe("list project members", () => {
       outlineClient: { request } as unknown as OutlineHttpClient,
       mapRepository: { findByProjectKey: () => Promise.resolve(MAP) } as unknown as ProjectCollectionMapRepository,
       erpUserRepository,
+      systemAdminEmail: "admin@x",
     });
 
     const members = await service.list("p1");
-    expect(members.map((m) => [m.erpUserId, m.role])).toEqual([
-      ["e1", "manager"],
-      ["e2", "editor"],
-      ["e3", "viewer"],
+    expect(members.map((m) => [m.erpUserId, m.email, m.role])).toEqual([
+      ["e1", "a@x", "manager"],
+      ["e2", "b@x", "editor"],
+      ["e3", "c@x", "viewer"],
+      [null, "guest@x", "viewer"],
     ]);
   });
 

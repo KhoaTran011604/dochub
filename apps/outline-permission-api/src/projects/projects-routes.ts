@@ -20,8 +20,10 @@ function parseProjectKey(raw: string | undefined): string {
 const parseErpUserId = (raw: string | undefined) =>
   parseUuidParam(raw, "ERP_USER_ID_NOT_UUID", "erpUserId");
 
+const projectRoleSchema = z.enum(["viewer", "editor", "manager"]);
 const createProjectBodySchema = z.object({ name: z.string().min(1).max(200) });
-const setMemberRoleBodySchema = z.object({ role: z.enum(["viewer", "editor", "manager"]) });
+const setMemberRoleBodySchema = z.object({ role: projectRoleSchema });
+const inviteBodySchema = z.object({ email: z.email(), role: projectRoleSchema });
 
 export function registerProjectsRoutes(
   router: Router,
@@ -51,6 +53,28 @@ export function registerProjectsRoutes(
     assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
     addAuditDetails(ctx.state, { projectKey });
     ctx.body = { projectKey, members: await deps.listMembersService.list(projectKey) };
+  });
+
+  /** Mời/đổi role collection theo email bất kỳ (không cần là user ERP). */
+  router.put("/projects/:projectKey/invitations", async (ctx) => {
+    const projectKey = parseProjectKey(ctx.params.projectKey);
+    assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
+    const body = await parseJsonBody(ctx, inviteBodySchema);
+    addAuditDetails(ctx.state, { projectKey, email: body.email, role: body.role });
+
+    await deps.memberRoleService.setRoleByEmail(projectKey, body.email, body.role);
+    ctx.body = { projectKey, email: body.email, role: body.role };
+  });
+
+  router.delete("/projects/:projectKey/invitations", async (ctx) => {
+    const projectKey = parseProjectKey(ctx.params.projectKey);
+    assertProjectKeyAllowed(getServiceClient(ctx.state), projectKey);
+    const parsed = z.email().safeParse(ctx.query.email);
+    if (!parsed.success) throw badRequest("INVALID_EMAIL", "Query `email` must be a valid email.");
+    addAuditDetails(ctx.state, { projectKey, email: parsed.data });
+
+    await deps.memberRoleService.removeMemberByEmail(projectKey, parsed.data);
+    ctx.status = 204;
   });
 
   router.put("/projects/:projectKey/members/:erpUserId", async (ctx) => {

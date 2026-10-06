@@ -62,9 +62,11 @@ Lỗi: `409 EMAIL_ALREADY_IN_USE`, `403 SYSTEM_ADMIN_EMAIL_RESERVED` (email `SYS
 | Method | Path | Body | Kết quả |
 |---|---|---|---|
 | PUT | `/projects/:projectKey` | `{ name }` | `{ projectKey, collectionId, url }` (idempotent) |
-| GET | `/projects/:projectKey/members` | – | `{ projectKey, members:[{erpUserId,email,name,role}] }` — ai đang có **quyền collection** |
+| GET | `/projects/:projectKey/members` | – | `{ projectKey, members:[{erpUserId,email,name,role}] }` — ai đang có **quyền collection**; `erpUserId: null` = người ngoài ERP mời theo email |
 | PUT | `/projects/:projectKey/members/:erpUserId` | `{ role: viewer\|editor\|manager }` | `{projectKey,erpUserId,role}` |
 | DELETE | `/projects/:projectKey/members/:erpUserId` | – | `204` (gỡ khỏi collection; quyền mức node vẫn giữ) |
+| PUT | `/projects/:projectKey/invitations` | `{ email, role: viewer\|editor\|manager }` | `{projectKey,email,role}` — email bất kỳ; tạo tài khoản Outline nếu chưa có, gửi mail kèm link collection |
+| DELETE | `/projects/:projectKey/invitations?email=` | – | `204` (`404 USER_NOT_IN_OUTLINE` nếu email chưa có tài khoản) |
 
 `projectKey` theo regex trong `projects-routes.ts` (`INVALID_PROJECT_KEY` nếu sai).
 
@@ -73,8 +75,11 @@ Lỗi: `409 EMAIL_ALREADY_IN_USE`, `403 SYSTEM_ADMIN_EMAIL_RESERVED` (email `SYS
 ### 3.3 Quyền mức node — scope `permissions:write`
 | Method | Path | Body | Kết quả |
 |---|---|---|---|
-| PUT | `/documents/:documentId/members/:erpUserId` | `{ permission: read\|read_write }` | `{documentId,erpUserId,permission}` |
+| GET | `/documents/:documentId/members` | – | `{ documentId, members:[{erpUserId,email,name,permission}] }` (`erpUserId: null` = người ngoài ERP) |
+| PUT | `/documents/:documentId/members/:erpUserId` | `{ permission: read\|read_write\|admin }` | `{documentId,erpUserId,permission}` — `admin` = "Manage" (sửa + chia sẻ + xóa doc đó) |
 | DELETE | `/documents/:documentId/members/:erpUserId` | – | `204` |
+| PUT | `/documents/:documentId/invitations` | `{ email, permission }` | `{documentId,email,permission}` — email bất kỳ, tạo tài khoản Outline nếu chưa có, gửi mail |
+| DELETE | `/documents/:documentId/invitations?email=` | – | `204` |
 
 ### 3.4 Tạo node — scope `documents:create` (MỚI, phase 5)
 

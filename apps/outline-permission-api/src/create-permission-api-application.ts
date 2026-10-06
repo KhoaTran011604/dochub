@@ -78,6 +78,9 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     outlineClient,
     mapRepository,
     erpUserRepository,
+    mailer,
+    outlineUrl: config.OUTLINE_URL,
+    systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
   });
   const documentMemberService = createSetDocumentMemberPermissionService({
     outlineClient,
@@ -113,7 +116,12 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     ensureProject: (projectKey, name) =>
       ensureProjectCollectionAndGroups(outlineClient, mapRepository, projectKey, name),
     memberRoleService,
-    listMembersService: createListProjectMembersService({ outlineClient, mapRepository, erpUserRepository }),
+    listMembersService: createListProjectMembersService({
+      outlineClient,
+      mapRepository,
+      erpUserRepository,
+      systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
+    }),
   });
   registerDocumentMembersRoutes(permissionsRouter, { service: documentMemberService });
 

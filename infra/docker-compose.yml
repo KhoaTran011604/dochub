@@ -213,6 +213,12 @@ services:
       TOKEN_SEAL_PASSWORD: ${TOKEN_SEAL_PASSWORD:-}
       PENDING_REQUEST_TTL_DAYS: ${PENDING_REQUEST_TTL_DAYS:-}
       ERP_PORTAL_URL: ${ERP_PORTAL_URL:-}
+      # Mail thông báo cấp quyền (doc / collection). Dùng chung SMTP với Outline; thiếu host/port = bỏ qua gửi mail.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USERNAME:-}
+      SMTP_PASS: ${SMTP_PASSWORD:-}
+      MAIL_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
     healthcheck:
       test:
         - CMD

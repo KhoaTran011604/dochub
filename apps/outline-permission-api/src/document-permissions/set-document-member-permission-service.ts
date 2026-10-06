@@ -1,7 +1,6 @@
 import {
   addUserToDocument,
   findUserByEmail,
-  inviteUsers,
   listDocumentMemberships,
   listUsersByIds,
   removeUserFromDocument,
@@ -12,6 +11,7 @@ import { forbidden, notFound } from "../http/api-error.ts";
 import type { AuthenticatedServiceClient } from "../http/service-key-authentication-middleware.ts";
 import type { ProjectCollectionMapRepository } from "../projects/project-collection-map-repository.ts";
 import type { ErpUserRepository } from "../users/erp-user-repository.ts";
+import { findOrInviteOutlineUserByEmail } from "../users/find-or-invite-outline-user-by-email.ts";
 import { resolveDocumentProjectScope } from "./resolve-document-project-scope.ts";
 import type { MailerService } from "../mail/mailer.ts";
 
@@ -89,15 +89,7 @@ export function createSetDocumentMemberPermissionService(deps: {
     async setPermissionByEmail(serviceClient, documentId, email, permission) {
       assertNotReserved(email);
       await resolveDocumentProjectScope(deps.outlineClient, deps.mapRepository, serviceClient, documentId);
-      let user = await findUserByEmail(deps.outlineClient, email);
-      if (!user) {
-        const invited = await inviteUsers(deps.outlineClient, {
-          invites: [{ email, name: email.split("@")[0] ?? email, role: "member" }],
-          suppressEmail: true,
-        });
-        user = invited.users.find((item) => item.email.toLowerCase() === email.toLowerCase());
-      }
-      if (!user) throw notFound("USER_NOT_IN_OUTLINE", `Cannot create Outline account for "${email}".`);
+      const user = await findOrInviteOutlineUserByEmail(deps.outlineClient, email);
       await addUserToDocument(deps.outlineClient, documentId, user.id, permission, false);
       await deps.mailer.sendDocumentInviteEmail({
         toEmail: email,

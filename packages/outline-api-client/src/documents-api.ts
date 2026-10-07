@@ -1,6 +1,7 @@
 import type { OutlineHttpClient } from "./outline-http-client.ts";
 import type {
   OutlineCreatedDocument,
+  OutlineDocumentContent,
   OutlineDocumentCreateInput,
   OutlineDocumentInfo,
   OutlineDocumentSummary,
@@ -72,6 +73,22 @@ export async function getDocumentInfo(
   documentId: string,
 ): Promise<OutlineDocumentInfo> {
   return client.request<OutlineDocumentInfo>("documents.info", { id: documentId });
+}
+
+/** `documents.info` đầy đủ (kèm `text`) — dùng cho xem nhanh nội dung, không dùng để dựng cây. */
+export async function getDocumentContent(
+  client: OutlineHttpClient,
+  documentId: string,
+): Promise<OutlineDocumentContent> {
+  const doc = await client.request<Partial<OutlineDocumentContent> & { id: string }>("documents.info", {
+    id: documentId,
+  });
+  return {
+    id: doc.id,
+    title: doc.title ?? "",
+    text: doc.text ?? "",
+    url: doc.url ?? `/doc/${doc.id}`,
+  };
 }
 
 export async function addUserToDocument(

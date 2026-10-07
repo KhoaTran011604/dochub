@@ -4,7 +4,9 @@ import Koa from "koa";
 import type pg from "pg";
 import { createApiAuditLogger, createApiAuditMiddleware } from "./audit/api-audit-logger.ts";
 import type { EnvironmentConfig } from "./config/environment-config.ts";
+import { registerDocumentContentRoutes } from "./document-permissions/document-content-routes.ts";
 import { registerDocumentMembersRoutes } from "./document-permissions/document-members-routes.ts";
+import { createGetDocumentContentService } from "./document-permissions/get-document-content-service.ts";
 import { createSetDocumentMemberPermissionService } from "./document-permissions/set-document-member-permission-service.ts";
 import { createNodeFeature } from "./documents/create-node-feature.ts";
 import { createHealthCheckRoute } from "./health/health-check-route.ts";
@@ -90,6 +92,11 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
     outlineUrl: config.OUTLINE_URL,
     systemAdminEmail: config.SYSTEM_ADMIN_EMAIL,
   });
+  const documentContentService = createGetDocumentContentService({
+    outlineClient,
+    mapRepository,
+    outlineUrl: config.OUTLINE_URL,
+  });
 
   const app = new Koa() as PermissionApiApplication;
   app.startBackgroundJobs = () => (createNode ? startExpiredRowsCleanupJob(createNode.cleanup) : () => undefined);
@@ -132,6 +139,7 @@ export function createPermissionApiApplication(config: EnvironmentConfig, pool: 
   const treeRouter = new Router();
   treeRouter.use(requireScope("tree:read"));
   createNode?.registerTreeRoutes(treeRouter);
+  registerDocumentContentRoutes(treeRouter, { service: documentContentService });
 
   app.use(usersRouter.routes());
   app.use(usersRouter.allowedMethods());

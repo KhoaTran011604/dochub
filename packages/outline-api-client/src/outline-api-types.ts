@@ -136,6 +136,15 @@ export interface OutlineDocumentInfo {
   url?: string;
 }
 
+/** `documents.info` đầy đủ phần nội dung — dùng cho xem nhanh (read-only), khác `OutlineDocumentSummary`. */
+export interface OutlineDocumentContent {
+  id: string;
+  title: string;
+  text: string;
+  /** Path tương đối `/doc/<slug>`, ghép với `OUTLINE_URL` khi trả ra ngoài. */
+  url: string;
+}
+
 /** Doc rút gọn từ `documents.list` / `userMemberships.list` (user token): đủ để dựng cây, không có nội dung. */
 export interface OutlineDocumentSummary {
   id: string;

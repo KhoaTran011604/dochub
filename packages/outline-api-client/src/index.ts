@@ -33,6 +33,7 @@ export { createCollection, addGroupToCollection, listCollectionDocuments } from 
 export {
   createDocument,
   getDocumentInfo,
+  getDocumentContent,
   addUserToDocument,
   removeUserFromDocument,
   listDocumentMemberships,

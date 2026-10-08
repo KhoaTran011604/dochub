@@ -84,6 +84,35 @@ pnpm --filter @hd-document/app-database migrate
 
 Chạy lại không lỗi (`No pending migrations.`).
 
+## Dùng Neon (hoặc Postgres managed khác) thay vì container `postgres`
+
+Service `postgres` nằm trong profile `local-db` — mặc định `docker compose up` không start nó; `outline`/`oidc-bridge`/`outline-permission-api` không bắt buộc chờ nó (`depends_on.required: false`).
+
+1. Tạo role + database bằng `infra/postgres-init/01-create-databases.sql` qua `psql` thật (không dùng SQL Editor trên web — file dùng `\getenv`, chỉ `psql` hiểu):
+   ```sh
+   export OUTLINE_DB_PASSWORD=... APP_DB_PASSWORD=... BRIDGE_DB_PASSWORD=... PERMISSION_API_DB_PASSWORD=...
+   psql "<connection string owner của Neon>" -v ON_ERROR_STOP=1 -f infra/postgres-init/01-create-databases.sql
+   ```
+   Role owner Neon (`neondb_owner`) không phải superuser thật: nếu gặp lỗi `must be able to SET ROLE`, chạy thêm `GRANT outline, hd_document_apps TO neondb_owner;` trước 2 câu `CREATE DATABASE`, rồi `REVOKE` lại sau khi tạo xong.
+2. Migrate schema app tự viết — dùng **endpoint direct** (không `-pooler`): `node-pg-migrate` cần session/advisory lock, không chạy qua pooler transaction-mode được.
+   ```sh
+   export APP_DATABASE_URL="postgres://hd_document_apps:<APP_DB_PASSWORD>@<neon-host-direct>/hd_document_apps?sslmode=require"
+   pnpm --filter @hd-document/app-database migrate
+   ```
+3. Tạo `infra/.env.neon` (không commit) khai các biến **container** dùng pooler endpoint (ok cho query ngắn):
+   ```
+   COMPOSE_OUTLINE_DATABASE_URL=postgres://outline:<OUTLINE_DB_PASSWORD>@<neon-host-pooler>/outline?sslmode=require
+   OUTLINE_PGSSLMODE=require
+   COMPOSE_BRIDGE_DATABASE_URL=postgres://bridge_app:<BRIDGE_DB_PASSWORD>@<neon-host-pooler>/hd_document_apps?sslmode=require
+   COMPOSE_PERMISSION_API_DATABASE_URL=postgres://permission_api_app:<PERMISSION_API_DB_PASSWORD>@<neon-host-pooler>/hd_document_apps?sslmode=require
+   ```
+   Tên biến `COMPOSE_*` cố ý khác biến host-side cùng gốc tên ở trên (`BRIDGE_DATABASE_URL`, `PERMISSION_API_DATABASE_URL`, `APP_DATABASE_URL` trỏ `localhost`) để tránh bị đè nhầm — container đọc `COMPOSE_*`, host đọc biến không prefix.
+4. Lên stack, nạp cả 2 file env (không cần `--profile local-db`):
+   ```sh
+   docker compose --env-file .env --env-file .env.neon up -d --wait --build
+   ```
+   Outline tự chạy migration nội bộ lúc container boot lần đầu — không cần bước migrate riêng cho database `outline`.
+
 ### Role database của app
 
 | Role                 | Dùng cho                                                                               |

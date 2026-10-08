@@ -17,6 +17,12 @@ x-service-defaults: &service-defaults
 services:
   postgres:
     <<: *service-defaults
+    # Chỉ cần khi dùng Postgres local (Docker). Deploy với Neon (hoặc
+    # Postgres managed khác): bỏ qua service này — không `--profile
+    # local-db` thì compose không start nó, và các service bên dưới không
+    # bắt buộc chờ nó (`required: false`) miễn đã trỏ *_DATABASE_URL sang
+    # Neon trong infra/.env.neon. Xem infra/README.md.
+    profiles: ["local-db"]
     # Bản Debian (glibc), không dùng -alpine: musl không có collation theo
     # locale, và đổi libc khi đã có dữ liệu làm hỏng index text.
     image: postgres:16
@@ -58,8 +64,11 @@ services:
     # Pin tag + digest. Nâng cấp: đổi cả 2, đối chiếu .env.sample của tag mới.
     image: outlinewiki/outline:1.10.1@sha256:832051f039b446c87aa23929cf92c00980c66aaa2d744d118c48c016ec816ad8
     depends_on:
+      # required: false — dùng Neon thì service postgres (profile local-db)
+      # không chạy; compose vẫn cho outline start, không chờ/không lỗi.
       postgres:
         condition: service_healthy
+        required: false
       redis:
         condition: service_healthy
       # Outline kiểm phiên SSO qua bridge (/me) → bridge phải lên trước.
@@ -75,9 +84,12 @@ services:
       PORT: "3000"
       SECRET_KEY: ${OUTLINE_SECRET_KEY:?set OUTLINE_SECRET_KEY in infra/.env}
       UTILS_SECRET: ${OUTLINE_UTILS_SECRET:?set OUTLINE_UTILS_SECRET in infra/.env}
-      DATABASE_URL: postgres://outline:${OUTLINE_DB_PASSWORD}@postgres:5432/outline
-      PGSSLMODE: disable
-      REDIS_URL: redis://redis:6379
+      # Mặc định trỏ postgres local; set COMPOSE_OUTLINE_DATABASE_URL (vd.
+      # trong infra/.env.neon) để override sang Neon/Postgres managed khác.
+      # Tên tách biệt với biến host-side (xem cuối file, mục "App tự viết").
+      DATABASE_URL: ${COMPOSE_OUTLINE_DATABASE_URL:-postgres://outline:${OUTLINE_DB_PASSWORD}@postgres:5432/outline}
+      PGSSLMODE: ${OUTLINE_PGSSLMODE:-disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       FILE_STORAGE: local
       FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
       FORCE_HTTPS: ${OUTLINE_FORCE_HTTPS:-false}
@@ -132,6 +144,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     ports:
       # Mặc định chỉ loopback: bridge chạy HTTP, người ngoài đi qua reverse proxy có TLS.
       - "${BRIDGE_BIND_ADDRESS:-127.0.0.1}:${BRIDGE_HOST_PORT:-4001}:4001"
@@ -142,7 +155,9 @@ services:
       NODE_ENV: production
       PORT: "4001"
       BRIDGE_PUBLIC_URL: ${BRIDGE_PUBLIC_URL:?set BRIDGE_PUBLIC_URL in infra/.env}
-      BRIDGE_DATABASE_URL: postgres://bridge_app:${BRIDGE_DB_PASSWORD}@postgres:5432/hd_document_apps
+      # Tên biến tách biệt với BRIDGE_DATABASE_URL host-side (dùng cho
+      # script/test chạy từ host, trỏ localhost) để tránh bị đè nhầm.
+      BRIDGE_DATABASE_URL: ${COMPOSE_BRIDGE_DATABASE_URL:-postgres://bridge_app:${BRIDGE_DB_PASSWORD}@postgres:5432/hd_document_apps}
       BRIDGE_COOKIE_KEYS: ${BRIDGE_COOKIE_KEYS:?set BRIDGE_COOKIE_KEYS in infra/.env}
       BRIDGE_SIGNING_JWKS: ${BRIDGE_SIGNING_JWKS:?set BRIDGE_SIGNING_JWKS in infra/.env}
       TRUST_PROXY: ${BRIDGE_TRUST_PROXY:-false}
@@ -190,6 +205,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
       outline:
         condition: service_healthy
     ports:
@@ -198,7 +214,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "4100"
-      PERMISSION_API_DATABASE_URL: postgres://permission_api_app:${PERMISSION_API_DB_PASSWORD}@postgres:5432/hd_document_apps
+      # Tên biến tách biệt với PERMISSION_API_DATABASE_URL host-side (dùng
+      # cho script/test chạy từ host, trỏ localhost) để tránh bị đè nhầm.
+      PERMISSION_API_DATABASE_URL: ${COMPOSE_PERMISSION_API_DATABASE_URL:-postgres://permission_api_app:${PERMISSION_API_DB_PASSWORD}@postgres:5432/hd_document_apps}
       TRUST_PROXY: ${PERMISSION_API_TRUST_PROXY:-false}
       OUTLINE_URL: ${OUTLINE_URL}
       # Gọi Outline API qua tên service trong mạng compose, không qua URL public.

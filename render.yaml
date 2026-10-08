@@ -1,0 +1,173 @@
+# Render Blueprint — staging/test deploy. Postgres = Neon, Redis = Upstash
+# (không deploy ở đây, không có service nào quản lý DB/cache trong file này).
+#
+# GAP đã biết: hd-outline dùng FILE_STORAGE=local (volume trong container) —
+# Render không có disk ở free tier → file đính kèm MẤT khi redeploy/restart/
+# spin-down sau idle. Chấp nhận cho lần test này (xem infra/README.md).
+#
+# URL liên service hardcode theo `name` (https://<name>.onrender.com, mặc định
+# của Render khi domain chưa bị người khác chiếm). Đổi `name` nào thì phải sửa
+# mọi URL tham chiếu tới nó trong file này + redirect URI ở IdP.
+#
+# Runbook bootstrap đầy đủ (thứ tự tạo secret, token, service key, IdP redirect
+# URI): infra/README.md, mục "Deploy lên Render (staging/test)".
+
+services:
+  # ───────────── Outline (image có sẵn, không build) ─────────────
+  - type: web
+    name: hd-outline
+    runtime: image
+    image:
+      url: docker.io/outlinewiki/outline:1.10.1@sha256:832051f039b446c87aa23929cf92c00980c66aaa2d744d118c48c016ec816ad8
+    plan: free
+    region: singapore
+    healthCheckPath: /_health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: URL
+        value: https://hd-outline.onrender.com
+      - key: PORT
+        value: "3000"
+      # openssl rand -hex 32 — bắt buộc đúng 32 byte hex.
+      - key: SECRET_KEY
+        sync: false
+      - key: UTILS_SECRET
+        sync: false
+      # Neon pooler, database `outline`, role `outline`. Ví dụ:
+      # postgres://outline:<pwd>@<neon-host-pooler>/outline?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      - key: PGSSLMODE
+        value: require
+      # Upstash: rediss://default:<password>@<endpoint>.upstash.io:6379
+      - key: REDIS_URL
+        sync: false
+      - key: FILE_STORAGE
+        value: local
+      - key: FILE_STORAGE_LOCAL_ROOT_DIR
+        value: /var/lib/outline/data
+      - key: FORCE_HTTPS
+        value: "true"
+      - key: ENABLE_UPDATES
+        value: "false"
+      - key: RATE_LIMITER_REQUESTS
+        value: "1000"
+      - key: OIDC_CLIENT_ID
+        value: outline
+      # Phải GIỐNG HỆT OIDC_CLIENT_SECRET của hd-oidc-bridge bên dưới.
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: OIDC_AUTH_URI
+        value: https://hd-oidc-bridge.onrender.com/auth
+      - key: OIDC_TOKEN_URI
+        value: https://hd-oidc-bridge.onrender.com/token
+      - key: OIDC_USERINFO_URI
+        value: https://hd-oidc-bridge.onrender.com/me
+      - key: OIDC_LOGOUT_URI
+        value: https://hd-oidc-bridge.onrender.com/session/end
+      - key: OIDC_DISPLAY_NAME
+        value: HD ERP
+      - key: OIDC_USERNAME_CLAIM
+        value: preferred_username
+      - key: OIDC_SCOPES
+        value: openid profile email
+      - key: DEFAULT_LANGUAGE
+        value: en_US
+      - key: OAUTH_DISABLE_DCR
+        value: "true"
+
+  # ───────────── oidc-bridge (build từ apps/oidc-bridge/Dockerfile) ─────────────
+  - type: web
+    name: hd-oidc-bridge
+    runtime: docker
+    dockerfilePath: ./apps/oidc-bridge/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4001"
+      - key: BRIDGE_PUBLIC_URL
+        value: https://hd-oidc-bridge.onrender.com
+      # Neon pooler, database `hd_document_apps`, role `bridge_app`.
+      - key: BRIDGE_DATABASE_URL
+        sync: false
+      # openssl rand -hex 32 (≥ 32 ký tự, nhiều khóa cách nhau dấu phẩy).
+      - key: BRIDGE_COOKIE_KEYS
+        sync: false
+      # pnpm --filter @hd-document/oidc-bridge generate:signing-jwks
+      - key: BRIDGE_SIGNING_JWKS
+        sync: false
+      - key: TRUST_PROXY
+        value: "true"
+      - key: OUTLINE_URL
+        value: https://hd-outline.onrender.com
+      - key: OIDC_CLIENT_ID
+        value: outline
+      # Phải GIỐNG HỆT OIDC_CLIENT_SECRET của hd-outline ở trên.
+      - key: OIDC_CLIENT_SECRET
+        sync: false
+      - key: SYSTEM_ADMIN_USERNAME
+        sync: false
+      - key: SYSTEM_ADMIN_EMAIL
+        sync: false
+      # printf '%s' '<mật khẩu>' | pnpm --filter @hd-document/oidc-bridge generate:admin-password-hash
+      - key: SYSTEM_ADMIN_PASSWORD_HASH
+        sync: false
+      # IdP thật (OpenIddict). Giữ đúng issuer đang dùng, không đổi domain.
+      - key: UPSTREAM_OIDC_ISSUER_URL
+        sync: false
+      - key: UPSTREAM_OIDC_CLIENT_ID
+        sync: false
+      # Trống = public client (PKCE). Có = confidential.
+      - key: UPSTREAM_OIDC_CLIENT_SECRET
+        sync: false
+      - key: PERMISSION_API_PUBLIC_URL
+        value: https://hd-permission-api.onrender.com
+      - key: PERMISSION_API_INTERNAL_URL
+        value: https://hd-permission-api.onrender.com
+      # Để trống ở bước tạo Blueprint; điền sau khi sinh service key (xem README).
+      - key: PERMISSION_API_SERVICE_KEY
+        sync: false
+
+  # ───────────── outline-permission-api (build từ apps/outline-permission-api/Dockerfile) ─────────────
+  - type: web
+    name: hd-permission-api
+    runtime: docker
+    dockerfilePath: ./apps/outline-permission-api/Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4100"
+      # Neon pooler, database `hd_document_apps`, role `permission_api_app`.
+      - key: PERMISSION_API_DATABASE_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: "true"
+      - key: OUTLINE_URL
+        value: https://hd-outline.onrender.com
+      # Placeholder — /healthz chỉ phụ thuộc Postgres nên deploy đầu vẫn lên được.
+      # Thay bằng Outline Settings → API → API key thật, rồi redeploy (xem README).
+      - key: OUTLINE_ADMIN_API_TOKEN
+        value: bootstrap-pending-replace-after-outline-login
+      - key: SYSTEM_ADMIN_EMAIL
+        sync: false
+      - key: PERMISSION_API_PUBLIC_URL
+        value: https://hd-permission-api.onrender.com
+      # Để trống ở bước tạo Blueprint; điền sau khi register-oauth-client (xem README).
+      - key: OUTLINE_OAUTH_CLIENT_ID
+        sync: false
+      - key: OUTLINE_OAUTH_CLIENT_SECRET
+        sync: false
+      # >= 32 ký tự, vd. openssl rand -base64 36. Để trống = tắt nhóm route tạo node.
+      - key: TOKEN_SEAL_PASSWORD
+        sync: false
